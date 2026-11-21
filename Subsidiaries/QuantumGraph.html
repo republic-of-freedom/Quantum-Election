@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QuantumGraph by Nitrogen LLC</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=Instrument+Sans:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    color-scheme: dark;
+    --bg:#0d0f13; --surface:#171a21; --track:#1b1f27; --ink:#f4f5f7; --muted:#9aa1ad; --rule:#272b34;
+    --c0:#f2454f; --c1:#3f7cff; --c2:#f5b83d; --c3:#2fd4b0;
+    --display:"Bricolage Grotesque","Helvetica Neue",Arial,sans-serif;
+    --body:"Instrument Sans","Helvetica Neue",Arial,sans-serif;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; min-height:100vh; display:flex; flex-direction:column; background:var(--bg); color:var(--ink); font:16px/1.4 var(--body); }
+  header { display:flex; align-items:center; gap:16px; padding:18px 32px 14px; }
+  .mark { display:grid; grid-template-columns:repeat(2,16px); gap:4px; flex:none; }
+  .mark i { width:16px; height:16px; }
+  h1 { font:800 32px/1 var(--display); letter-spacing:-.02em; margin:0; }
+  .by { margin:4px 0 0; color:var(--muted); font-size:14px; font-weight:600; }
+
+  main { flex:1; display:grid; grid-template-columns:440px 1fr; border-top:2px solid var(--rule); min-height:0; }
+  aside { padding:6px 28px 40px; border-right:2px solid var(--rule); overflow-y:auto; max-height:calc(100vh - 82px); }
+  .preview { padding:28px 32px; }
+  canvas { display:block; width:100%; max-width:1280px; aspect-ratio:16/9; border:2px solid var(--rule); background:var(--bg); }
+  .hint { color:var(--muted); font-size:14px; margin:12px 0 0; max-width:700px; }
+
+  h3 { display:flex; justify-content:space-between; align-items:baseline; font:800 18px/1 var(--display); letter-spacing:-.01em; margin:26px 0 12px; }
+  h3 span { font:600 14px var(--body); color:var(--muted); }
+  label { display:block; margin:0 0 10px; font-size:13px; font-weight:600; color:var(--muted); }
+  input[type=text], input[type=number], select, textarea {
+    display:block; width:100%; margin-top:4px; font:400 15px var(--body); color:var(--ink);
+    background:var(--surface); border:2px solid var(--rule); border-radius:0; padding:8px 10px;
+  }
+  input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible { outline:3px solid var(--c1); outline-offset:2px; }
+  textarea { height:110px; resize:vertical; font:13px/1.4 ui-monospace, Menlo, Consolas, monospace; }
+  .two { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .checks { display:grid; grid-template-columns:1fr 1fr; gap:6px 12px; margin-top:4px; }
+  .check { display:flex; align-items:center; gap:10px; color:var(--ink); font-size:15px; margin:0; }
+  .check input { width:18px; height:18px; margin:0; accent-color:var(--ink); }
+  [hidden] { display:none !important; }
+
+  .tabs { display:flex; flex-wrap:wrap; border-bottom:2px solid var(--rule); }
+  .tab { font:800 18px var(--display); letter-spacing:-.01em; color:var(--muted); background:none; border:0; border-bottom:4px solid transparent; margin-bottom:-2px; padding:8px 12px; cursor:pointer; }
+  .tab:hover { color:var(--ink); }
+  .tab[aria-selected="true"] { color:var(--ink); border-bottom-color:var(--ink); }
+  .tabs.big .tab { font-size:22px; padding:10px 18px; }
+
+  .srow { background:var(--surface); padding:10px; margin-bottom:8px; }
+  .sline { display:flex; gap:8px; align-items:center; }
+  .sline input[type=text] { margin:0; flex:1; min-width:0; }
+  .sline select { margin:0; width:128px; }
+  .sline i { width:14px; height:34px; flex:none; }
+  .sline input[type=color] { width:40px; height:36px; padding:0; margin:0; border:2px solid var(--rule); background:none; cursor:pointer; flex:none; }
+  .sline button { border:0; background:none; color:var(--muted); font-size:16px; cursor:pointer; height:34px; width:28px; }
+  .sline button:hover:not(:disabled) { color:var(--ink); }
+  .sline button:disabled { opacity:.3; cursor:default; }
+  .srow > input { margin-top:8px; }
+
+  .btn { font:600 14px var(--body); color:var(--ink); background:transparent; border:2px solid var(--ink); padding:8px 16px; cursor:pointer; }
+  .btn:hover:not(:disabled) { background:var(--ink); color:var(--bg); }
+  .btn.main { background:var(--ink); color:var(--bg); }
+  .btn.main:hover { background:transparent; color:var(--ink); }
+  .btn:disabled { opacity:.35; cursor:default; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+  #msg { margin:8px 0 0; font-size:14px; color:var(--c0); min-height:20px; }
+
+  @media (max-width:900px) {
+    main { grid-template-columns:1fr; }
+    aside { max-height:none; border-right:0; border-bottom:2px solid var(--rule); order:2; }
+    header { padding:16px 20px 12px; }
+    .preview { padding:20px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="mark" aria-hidden="true"><i style="background:var(--c0)"></i><i style="background:var(--c1)"></i><i style="background:var(--c2)"></i><i style="background:var(--c3)"></i></div>
+  <div>
+    <h1>QuantumGraph</h1>
+    <p class="by">by Nitrogen LLC</p>
+  </div>
+</header>
+
+<main>
+  <aside>
+    <h3 style="margin-top:18px">Mode <span id="modeNote"></span></h3>
+    <div class="tabs big" id="modes" role="tablist" aria-label="Mode"></div>
+
+    <h3>Graph type</h3>
+    <div class="tabs" id="graphs" role="tablist" aria-label="Graph type"></div>
+
+    <h3>Text</h3>
+    <label>Title<input type="text" id="title"></label>
+    <label>Subtitle<input type="text" id="sub"></label>
+    <label>Chart heading<input type="text" id="head"></label>
+    <label>Footer note<input type="text" id="note"></label>
+
+    <h3>Settings</h3>
+    <div class="two">
+      <label>Value prefix<input type="text" id="prefix" placeholder="$"></label>
+      <label>Value suffix<input type="text" id="suffix" placeholder="%"></label>
+    </div>
+    <label data-g="bar pie">Period shown<select id="period"></select></label>
+    <div class="two" data-m="votes">
+      <label>Total votes<input type="number" id="total" min="0"></label>
+      <label>Call above (0 = off)<input type="number" id="call" min="0"></label>
+    </div>
+    <label data-g="trend">Forecast periods (0–6)<input type="number" id="forecast" min="0" max="6"></label>
+    <div class="checks">
+      <label class="check"><input type="checkbox" id="labels"> Value labels</label>
+      <label class="check" data-g="line trend scatter"><input type="checkbox" id="zero"> Start at zero</label>
+      <label class="check" data-g="line"><input type="checkbox" id="smooth"> Smooth lines</label>
+      <label class="check" data-g="pie"><input type="checkbox" id="donut"> Donut hole</label>
+    </div>
+
+    <h3>Periods</h3>
+    <label>Comma-separated labels (numbers give Scatter a true x-axis)<input type="text" id="periods"></label>
+
+    <h3>Shares <span id="cnt"></span></h3>
+    <div id="shares"></div>
+    <div class="row"><button type="button" class="btn" id="add">Add share</button></div>
+
+    <h3>Data as CSV</h3>
+    <textarea id="csv" spellcheck="false" aria-label="CSV data"></textarea>
+    <div class="row"><button type="button" class="btn" id="apply">Apply CSV</button></div>
+    <p id="msg" role="alert"></p>
+
+    <div class="row">
+      <button type="button" class="btn main" id="png">Download PNG</button>
+      <button type="button" class="btn" id="sample">Reset this mode</button>
+    </div>
+  </aside>
+
+  <section class="preview">
+    <canvas id="cv" width="2560" height="1440" role="img" aria-label="Chart preview"></canvas>
+    <p class="hint">Each share has one value per period. Bar and Pie show the period you pick; Trend, Line and Scatter plot every period. CSV layout: a header row of share names, then one row per period.</p>
+  </section>
+</main>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const W = 1280, H = 720, S = 2;
+  const P = { bg:"#0d0f13", surface:"#171a21", track:"#1b1f27", ink:"#f4f5f7", muted:"#9aa1ad", rule:"#272b34", on:"#0d0f13" };
+  const DISP = '"Bricolage Grotesque","Helvetica Neue",Arial,sans-serif', BODY = '"Instrument Sans","Helvetica Neue",Arial,sans-serif';
+  const PARTIES = [["Republican","#f2454f"],["Democrat","#3f7cff"],["Independent","#f5b83d"],["Libertarian","#2fd4b0"]];
+  const PAL = ["#3f7cff","#f5b83d","#2fd4b0","#f2454f","#a06bff","#ff8a3d","#4cc9f0","#9be564","#ff5fa2","#c9a227","#00b894","#e17055","#6c8cff","#ffd166","#06d6a0","#ef476f","#b388ff","#ff9f1c","#2ec4b6","#e5383b","#7bdff2","#b2f7ef","#f7aef8","#cdb4db"];
+  const MODES = { data:["Data",12,"up to 12 shares, custom colors"], votes:["Votes",4,"up to 4 shares, party colors"], other:["Other",24,"up to 24 shares, custom colors"] };
+  const GRAPHS = [["bar","Vertical Bar"],["trend","Trend"],["line","Line"],["scatter","Scatter"],["pie","Pie"]];
+  const nf = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
+  const cf = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 });
+
+  const sh = (rows) => rows.map(([name, vals], i) => ({ name, vals, color: PAL[i], party: i % 4 }));
+  const base = o => Object.assign({ prefix:"", suffix:"", period:-1, zero:true, smooth:false, donut:false, labels:true, forecast:2, total:0, call:0, note:"" }, o);
+  const SAMPLES = {
+    data: () => base({ title:"Production Output", sub:"Units produced by line", head:"Units per month", periods:"Jan, Feb, Mar, Apr, May, Jun",
+      shares: sh([["Alpha","120, 150, 180, 175, 210, 240"],["Bravo","90, 95, 130, 160, 150, 190"],["Charlie","60, 80, 70, 95, 110, 105"],["Delta","140, 130, 125, 120, 118, 110"],["Echo","30, 45, 60, 80, 105, 135"]]) }),
+    votes: () => base({ title:"Election Results", sub:"Votes counted through the day", head:"President", periods:"9 AM, 10 AM, 11 AM, 12 PM", total:700, call:450,
+      shares: sh([["Republican","60, 150, 230, 296"],["Democrat","52, 128, 201, 274"],["Independent","6, 18, 31, 42"],["Libertarian","2, 9, 15, 19"]]) }),
+    other: () => base({ title:"Growth Index", sub:"Eight series, numeric years", head:"Index by year", periods:"2019, 2020, 2021, 2022, 2023, 2024",
+      shares: sh([["North","40, 44, 52, 61, 70, 84"],["South","55, 50, 58, 66, 69, 77"],["East","30, 36, 41, 39, 48, 57"],["West","70, 66, 72, 80, 78, 91"],["Central","20, 28, 35, 46, 60, 73"],["Coastal","48, 52, 49, 55, 63, 66"],["Inland","38, 35, 33, 37, 40, 42"],["Islands","12, 15, 22, 28, 31, 45"]]) })
+  };
+  const fresh = () => ({ mode:"data", graph:"bar", m:{ data:SAMPLES.data(), votes:SAMPLES.votes(), other:SAMPLES.other() } });
+  let st = null;
+  try { st = JSON.parse(localStorage.getItem("qg-state")); } catch (e) {}
+  if (!st || !st.m || !st.m.data || !st.m.votes || !st.m.other || !MODES[st.mode]) st = fresh();
+  const cur = () => st.m[st.mode];
+
+  // ====== Drawing ======
+  const cv = $("cv"), g = cv.getContext("2d");
+  function render() {
+    const d = cur(), votes = st.mode === "votes", G = st.graph;
+    const pers = d.periods.split(",").map(s => s.trim()).filter(Boolean), np = pers.length;
+    const rs = d.shares.map((s, i) => { const a = String(s.vals).split(",").map(parseFloat);
+      return { n: s.name || "Share " + (i + 1), k: votes ? PARTIES[s.party % 4][1] : s.color, v: pers.map((_, j) => isFinite(a[j]) ? a[j] : 0) }; });
+    const n = rs.length, pi = +d.period, pidx = pi >= 0 && pi < np ? pi : np - 1;
+    const val = s => pi === -2 ? s.v.reduce((a, b) => a + b, 0) : (s.v[pidx] || 0);
+    const plabel = pi === -2 ? "All periods combined" : (pers[pidx] || "–");
+    const f = v => d.prefix + nf.format(v) + d.suffix;
+    const fa = v => d.prefix + (Math.abs(v) >= 10000 ? cf.format(v) : nf.format(v)) + d.suffix;
+    const vals = rs.map(val), vsum = vals.reduce((a, b) => a + b, 0), mx = Math.max(...vals);
+    const call = +d.call || 0, total = +d.total || 0;
+    const lead = mx > 0 && vals.filter(v => v === mx).length === 1 ? vals.indexOf(mx) : -1;
+    const called = votes && call > 0 && mx > call ? vals.indexOf(mx) : -1;
+
+    g.setTransform(S, 0, 0, S, 0, 0);
+    const R = (x, y, w, h, c) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
+    const T = (s, x, y, fo, c, a = "left") => { g.font = fo; g.fillStyle = c; g.textAlign = a; g.textBaseline = "alphabetic"; g.fillText(String(s), x, y); };
+    const fit = (s, fo, w) => { s = String(s); g.font = fo; if (g.measureText(s).width <= w) return s; while (s.length > 1 && g.measureText(s + "…").width > w) s = s.slice(0, -1); return s + "…"; };
+    const chip = (xr, y, label, k) => { g.font = `600 12px ${BODY}`; const w = g.measureText(label).width + 18; R(xr - w, y, w, 20, k); T(label, xr - w / 2, y + 14, `600 12px ${BODY}`, P.on, "center"); return w; };
+    const range = (lo, hi, zero) => {
+      if (zero) { lo = Math.min(lo, 0); hi = Math.max(hi, 0); } if (hi === lo) hi = lo + 1;
+      const raw = (hi - lo) / 5, mag = Math.pow(10, Math.floor(Math.log10(raw))), step = [1, 2, 2.5, 5, 10].find(k => k * mag >= raw) * mag;
+      return { min: Math.floor(lo / step + 1e-9) * step, max: Math.ceil(hi / step - 1e-9) * step, step };
+    };
+    const msg = s => T(s, 530, 420, `600 22px ${BODY}`, P.muted, "center");
+
+    // Frame
+    R(0, 0, W, H, P.bg);
+    T(fit(d.title, `800 36px ${DISP}`, 1200), 40, 62, `800 36px ${DISP}`, P.ink);
+    T(fit(d.sub, `400 16px ${BODY}`, 1200), 40, 90, `400 16px ${BODY}`, P.muted);
+    R(40, 112, 1200, 2, P.rule);
+    let status = "";
+    if (called >= 0) status = `${rs[called].n} is called as the winner.`;
+    else if (votes && n === 1) status = `${rs[0].n} is running unopposed.`;
+    else if (votes && vsum === 0) status = "No votes have been counted yet.";
+    else if (votes && lead < 0) { const t = rs.filter((_, i) => vals[i] === mx).map(r => r.n); status = "Tied between " + t.join(" and ") + "."; }
+    else if (votes) { const diff = mx - Math.max(...vals.filter((_, i) => i !== lead)); status = `${rs[lead].n} leads by ${nf.format(diff)} ${diff === 1 ? "vote" : "votes"}.`; }
+    else if (n && mx > 0) status = `Highest: ${rs[vals.indexOf(mx)].n} · ${f(mx)}`;
+    const sfont = `600 22px ${BODY}`, stx = fit(status, sfont, 600); g.font = sfont;
+    const sw = status ? g.measureText(stx).width : 0;
+    if (called >= 0) { R(1240 - sw - 32, 134, sw + 32, 42, rs[called].k); T(stx, 1224, 164, sfont, P.on, "right"); }
+    else T(stx, 1240, 164, sfont, P.ink, "right");
+    T(fit(d.head, `800 42px ${DISP}`, 1160 - sw - 40), 40, 168, `800 42px ${DISP}`, P.ink);
+    R(40, 676, 1200, 1, P.rule);
+    T(fit(d.note, `400 13px ${BODY}`, 800), 40, 702, `400 13px ${BODY}`, P.muted);
+    const bw0 = (g.font = `600 13px ${BODY}`, g.measureText("QuantumGraph by Nitrogen LLC").width);
+    T("QuantumGraph by Nitrogen LLC", 1240, 702, `600 13px ${BODY}`, P.muted, "right");
+    PARTIES.forEach(([, c], i) => R(1240 - bw0 - 24 + (i % 2) * 7, 691 + Math.floor(i / 2) * 7, 5, 5, c));
+
+    // Legend
+    {
+      const card = n <= 6, gap = card ? 12 : 0, rh = card ? Math.min(100, (466 - gap * (n - 1)) / n) : Math.min(32, 466 / n), y0 = 204;
+      rs.forEach((s, i) => {
+        const y = y0 + i * (rh + gap), v = vals[i];
+        if (card) {
+          R(990, y, 250, rh, P.surface); R(990, y, 10, rh, s.k);
+          const lab = votes ? (called === i ? "Winner" : called < 0 && lead === i && n > 1 ? "Leading" : "") : "";
+          const cw = lab ? chip(1230, y + 10, lab, s.k) + 8 : 0;
+          T(fit(s.n, `600 17px ${BODY}`, 208 - cw), 1014, y + rh * .32, `600 17px ${BODY}`, P.ink);
+          T(fit(f(v), `800 ${Math.min(40, rh * .42)}px ${DISP}`, 215), 1014, y + rh * .72, `800 ${Math.min(40, rh * .42)}px ${DISP}`, P.ink);
+          T((vsum > 0 ? (v / vsum * 100).toFixed(1) : "0.0") + "% of total", 1014, y + rh - 9, `400 13px ${BODY}`, P.muted);
+        } else {
+          const fs = rh >= 26 ? 14 : rh >= 20 ? 12 : 11;
+          R(990, y + rh / 2 - 6, 12, 12, s.k);
+          T(fit(s.n, `600 ${fs}px ${BODY}`, 150), 1010, y + rh / 2 + fs / 3, `600 ${fs}px ${BODY}`, P.ink);
+          T(fa(v), 1240, y + rh / 2 + fs / 3, `600 ${fs}px ${BODY}`, P.muted, "right");
+        }
+      });
+    }
+
+    const PL = 110, PR = 950, PT = 216, PB = 618;
+    const grid = r => {
+      const Y = v => PB - (v - r.min) / (r.max - r.min) * (PB - PT), k = Math.round((r.max - r.min) / r.step);
+      for (let i = 0; i <= k; i++) { const v = r.min + i * r.step; R(PL, Y(v), PR - PL, 1, P.rule); T(fa(v), PL - 12, Y(v) + 5, `600 13px ${BODY}`, P.muted, "right"); }
+      if (r.min < 0) R(PL, Y(0), PR - PL, 2, P.muted);
+      return Y;
+    };
+    const thresh = (Y, r) => { if (votes && call > 0 && call >= r.min && call <= r.max) {
+      for (let q = PL; q < PR; q += 14) R(q, Y(call) - 1, 8, 2, P.ink);
+      T(`Over ${nf.format(call)} calls the race`, PR, Y(call) - 8, `600 13px ${BODY}`, P.muted, "right"); } };
+
+    // ---- Vertical bar ----
+    if (G === "bar") {
+      if (!n) return msg("Add a share to draw this chart.");
+      const r = range(Math.min(...vals), Math.max(...vals, votes && call > 0 ? call : -Infinity), true), Y = grid(r);
+      T("Period: " + plabel, 40, 206, `600 14px ${BODY}`, P.muted);
+      const gw = (PR - PL) / n, bw = Math.min(110, gw * .62), lf = n > 12 ? 11 : n > 8 ? 13 : n > 5 ? 17 : 24;
+      rs.forEach((s, i) => {
+        const v = vals[i], cx = PL + gw * (i + .5), y0 = Y(0), yv = Y(v);
+        R(cx - bw / 2, Math.min(y0, yv), bw, Math.abs(y0 - yv), s.k);
+        if (d.labels) T(n > 8 ? fa(v) : f(v), cx, v >= 0 ? yv - 10 : yv + lf + 8, `800 ${lf}px ${DISP}`, P.ink, "center");
+        if (gw >= 44) T(fit(s.n, `600 ${n > 8 ? 12 : 15}px ${BODY}`, gw - 6), cx, PB + 28, `600 ${n > 8 ? 12 : 15}px ${BODY}`, P.muted, "center");
+      });
+      R(PL, Y(0), PR - PL, 2, P.ink); thresh(Y, r);
+    }
+
+    // ---- Pie / donut ----
+    else if (G === "pie") {
+      const pv = vals.map(v => Math.max(0, v)), tot = pv.reduce((a, b) => a + b, 0), cx = 530, cy = 424, Rr = 205;
+      T("Period: " + plabel, 40, 206, `600 14px ${BODY}`, P.muted);
+      if (!tot) { g.fillStyle = P.track; g.beginPath(); g.arc(cx, cy, Rr, 0, Math.PI * 2); g.fill(); return msg("No positive values to chart."); }
+      let a = -Math.PI / 2; const hole = d.donut ? .55 : 0;
+      pv.forEach((v, i) => {
+        if (v <= 0) return; const b = a + v / tot * Math.PI * 2;
+        g.beginPath(); g.moveTo(cx, cy); g.arc(cx, cy, Rr, a, b); g.closePath(); g.fillStyle = rs[i].k; g.fill();
+        g.lineWidth = 3; g.strokeStyle = P.bg; g.stroke();
+        const pct = v / tot * 100, m = (a + b) / 2, rad = Rr * (d.donut ? .775 : .68);
+        if (d.labels && pct >= 4) T(pct.toFixed(pct >= 10 ? 0 : 1) + "%", cx + rad * Math.cos(m), cy + rad * Math.sin(m) + 7, `800 ${n > 8 ? 15 : 22}px ${DISP}`, P.on, "center");
+        a = b;
+      });
+      if (hole) { g.fillStyle = P.bg; g.beginPath(); g.arc(cx, cy, Rr * hole, 0, Math.PI * 2); g.fill();
+        T(fit(f(tot), `800 44px ${DISP}`, Rr * hole * 1.8), cx, cy + 12, `800 44px ${DISP}`, P.ink, "center"); T("total", cx, cy + 38, `600 15px ${BODY}`, P.muted, "center"); }
+    }
+
+    // ---- Trend / Line / Scatter ----
+    else {
+      if (G !== "scatter" && np < 2) return msg("Add at least two periods to draw a " + G + ".");
+      if (!np || !n) return msg("Add a period and a share to draw this chart.");
+      const F = G === "trend" ? Math.max(0, Math.min(6, Math.round(+d.forecast || 0))) : 0, nx = np + F;
+      const numeric = G === "scatter" && pers.every(p => isFinite(+p));
+      const reg = v => { const m = v.length; let sx = 0, sy = 0, sxy = 0, sxx = 0; v.forEach((y, x) => { sx += x; sy += y; sxy += x * y; sxx += x * x; });
+        const den = m * sxx - sx * sx, b = den ? (m * sxy - sx * sy) / den : 0; return { b, a: (sy - b * sx) / m }; };
+      const fits = G === "trend" ? rs.map(s => reg(s.v)) : [];
+      const pool = rs.flatMap(s => s.v).concat(fits.flatMap(t => [t.a, t.a + t.b * (nx - 1)]));
+      const r = range(Math.min(...pool), Math.max(...pool, votes && call > 0 ? call : -Infinity), d.zero), Y = grid(r);
+      let X, px;
+      if (numeric) {
+        const xs = pers.map(Number), xr = range(Math.min(...xs), Math.max(...xs), false);
+        X = x => PL + 30 + (x - xr.min) / (xr.max - xr.min) * (PR - PL - 60); px = j => X(xs[j]);
+        for (let i = 0, k = Math.round((xr.max - xr.min) / xr.step); i <= k; i++) { const v = xr.min + i * xr.step; R(X(v), PT, 1, PB - PT, P.rule); T(nf.format(v), X(v), PB + 28, `600 13px ${BODY}`, P.muted, "center"); }
+      } else {
+        X = i => nx > 1 ? PL + 30 + i / (nx - 1) * (PR - PL - 60) : (PL + PR) / 2; px = X;
+        const step = Math.ceil(nx * 74 / (PR - PL - 60));
+        for (let i = 0; i < nx; i++) if (i % step === 0) T(fit(i < np ? pers[i] : "+" + (i - np + 1), `600 13px ${BODY}`, 80), X(i), PB + 28, `600 13px ${BODY}`, i < np ? P.muted : P.ink, "center");
+      }
+      if (F > 0) { g.globalAlpha = .07; R(X(np - 1), PT, PR - X(np - 1), PB - PT, P.ink); g.globalAlpha = 1; T("Forecast", PR - 8, PT + 18, `600 13px ${BODY}`, P.muted, "right"); }
+      thresh(Y, r);
+      g.lineJoin = "round"; g.lineCap = "round";
+      const path = pts => { g.beginPath(); pts.forEach(([x, y], i) => { if (!i) g.moveTo(x, y); else if (d.smooth && G === "line") { const [qx, qy] = pts[i - 1]; g.bezierCurveTo((qx + x) / 2, qy, (qx + x) / 2, y, x, y); } else g.lineTo(x, y); }); };
+      rs.forEach((s, si) => {
+        const pts = s.v.map((v, j) => [px(j), Y(v)]);
+        if (G === "line" || G === "trend") {
+          g.globalAlpha = G === "trend" ? .3 : 1; g.strokeStyle = s.k; g.lineWidth = G === "trend" ? 2 : 4; path(pts); g.stroke(); g.globalAlpha = 1;
+        }
+        if (G === "trend" && np > 1) {
+          const t = fits[si], p0 = [X(0), Y(t.a)], p1 = [X(np - 1), Y(t.a + t.b * (np - 1))], p2 = [X(nx - 1), Y(t.a + t.b * (nx - 1))];
+          g.strokeStyle = s.k; g.lineWidth = 4; g.beginPath(); g.moveTo(...p0); g.lineTo(...p1); g.stroke();
+          if (F > 0) { g.setLineDash([10, 8]); g.beginPath(); g.moveTo(...p1); g.lineTo(...p2); g.stroke(); g.setLineDash([]); }
+          if (d.labels && n <= 6) T((t.b >= 0 ? "+" : "") + nf.format(Math.round(t.b * 100) / 100) + " per period", PR - 8, p2[1] - 10, `600 13px ${BODY}`, s.k, "right");
+        }
+        const rad = G === "scatter" ? 7 : G === "trend" ? 4 : 5;
+        pts.forEach(([x, y], j) => {
+          g.globalAlpha = G === "trend" ? .75 : .95; g.fillStyle = s.k; g.beginPath(); g.arc(x, y, rad, 0, Math.PI * 2); g.fill();
+          g.globalAlpha = 1; g.lineWidth = 2; g.strokeStyle = P.bg; g.stroke();
+          const endOnly = G !== "scatter", show = endOnly ? (j === np - 1 && n <= 6) : n * np <= 24;
+          if (d.labels && show) T(f(s.v[j]), Math.min(x, PR - 20), y - 12, `600 13px ${BODY}`, s.k, "center");
+        });
+      });
+    }
+  }
+
+  // ====== CSV ======
+  const q = s => /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  function toCSV() {
+    const d = cur(), pers = d.periods.split(",").map(s => s.trim()).filter(Boolean);
+    const cols = d.shares.map(s => String(s.vals).split(",").map(x => x.trim()));
+    return ["Period," + d.shares.map(s => q(s.name || "")).join(","), ...pers.map((p, j) => q(p) + "," + cols.map(c => c[j] === undefined || c[j] === "" ? 0 : c[j]).join(","))].join("\n");
+  }
+  function parseCSV(text) {
+    const rows = []; let row = [], cell = "", inq = false;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (inq) { if (ch === '"' && text[i + 1] === '"') { cell += '"'; i++; } else if (ch === '"') inq = false; else cell += ch; }
+      else if (ch === '"') inq = true;
+      else if (ch === ",") { row.push(cell); cell = ""; }
+      else if (ch === "\n" || ch === "\r") { if (ch === "\r" && text[i + 1] === "\n") i++; row.push(cell); rows.push(row); row = []; cell = ""; }
+      else cell += ch;
+    }
+    if (cell !== "" || row.length) { row.push(cell); rows.push(row); }
+    return rows.filter(r => r.some(c => c.trim() !== ""));
+  }
+  function applyCSV() {
+    $("msg").textContent = "";
+    try {
+      const d = cur(), max = MODES[st.mode][1], rows = parseCSV($("csv").value);
+      if (rows.length < 2) throw new Error("Add a header row of share names and at least one period row.");
+      const names = rows[0].slice(1, 1 + max).map(h => h.trim());
+      if (!names.length || names.every(x => !x)) throw new Error("The header row needs share names after the first comma.");
+      const body = rows.slice(1);
+      d.periods = body.map(r => (r[0] || "").trim()).join(", ");
+      d.shares = names.map((name, i) => ({ name, vals: body.map(r => (r[i + 1] || "0").trim()).join(", "),
+        color: (d.shares[i] && d.shares[i].color) || PAL[i], party: (d.shares[i] && d.shares[i].party) ?? i % 4 }));
+      sync(); buildShares(); changed(true);
+    } catch (e) { $("msg").textContent = e.message; }
+  }
+
+  // ====== Form ======
+  function buildTabs() {
+    [["modes", Object.entries(MODES).map(([id, m]) => [id, m[0]]), "mode"], ["graphs", GRAPHS, "graph"]].forEach(([box, items, key]) => {
+      const el = $(box); el.innerHTML = "";
+      items.forEach(([id, label]) => {
+        const b = document.createElement("button"); b.type = "button"; b.className = "tab"; b.textContent = label; b.setAttribute("role", "tab");
+        b.setAttribute("aria-selected", String(st[key] === id));
+        b.onclick = () => { st[key] = id; if (key === "mode") { sync(); buildShares(); } buildTabs(); vis(); changed(); };
+        el.appendChild(b);
+      });
+    });
+    $("modeNote").textContent = MODES[st.mode][2];
+  }
+  function vis() {
+    document.querySelectorAll("[data-g]").forEach(e => e.hidden = !e.dataset.g.split(" ").includes(st.graph));
+    document.querySelectorAll("[data-m]").forEach(e => e.hidden = e.dataset.m !== st.mode);
+  }
+  function periodOptions() {
+    const d = cur(), sel = $("period"), pers = d.periods.split(",").map(s => s.trim()).filter(Boolean);
+    sel.innerHTML = "";
+    [[-1, "Latest period"], [-2, "All periods combined"], ...pers.map((p, i) => [i, p])].forEach(([v, t]) => { const o = document.createElement("option"); o.value = v; o.textContent = t; sel.appendChild(o); });
+    if (![...sel.options].some(o => o.value === String(d.period))) d.period = -1;
+    sel.value = String(d.period);
+  }
+  function sync() {
+    const d = cur();
+    ["title", "sub", "head", "note", "prefix", "suffix", "periods", "total", "call", "forecast"].forEach(k => $(k).value = d[k]);
+    ["zero", "smooth", "donut", "labels"].forEach(k => $(k).checked = !!d[k]);
+    periodOptions();
+  }
+  function buildShares() {
+    const d = cur(), votes = st.mode === "votes", box = $("shares"), max = MODES[st.mode][1]; box.innerHTML = "";
+    d.shares.forEach((s, i) => {
+      const r = document.createElement("div"); r.className = "srow";
+      r.innerHTML = '<div class="sline">' + (votes
+        ? '<i></i><select aria-label="Party">' + PARTIES.map((p, k) => `<option value="${k}">${p[0]}</option>`).join("") + "</select>"
+        : '<input type="color" aria-label="Color">') + '<input type="text" aria-label="Share name"><button type="button" aria-label="Remove share">✕</button></div><input type="text" aria-label="Values by period" placeholder="Values by period, e.g. 10, 20, 30">';
+      const nm = r.querySelector('input[aria-label="Share name"]'), vl = r.querySelector('input[aria-label^="Values"]'), rm = r.querySelector("button");
+      nm.value = s.name; vl.value = s.vals;
+      nm.oninput = () => { s.name = nm.value; changed(); };
+      vl.oninput = () => { s.vals = vl.value; changed(); };
+      if (votes) {
+        const sel = r.querySelector("select"), sw = r.querySelector("i"); sel.value = s.party; sw.style.background = PARTIES[s.party][1];
+        sel.onchange = () => { s.party = +sel.value; sw.style.background = PARTIES[s.party][1]; changed(true); };
+      } else { const c = r.querySelector("input[type=color]"); c.value = s.color; c.oninput = () => { s.color = c.value; changed(true); }; }
+      rm.disabled = d.shares.length <= 1;
+      rm.onclick = () => { d.shares.splice(i, 1); buildShares(); changed(); };
+      box.appendChild(r);
+    });
+    $("add").disabled = d.shares.length >= max;
+    $("cnt").textContent = d.shares.length + " of " + max;
+  }
+  function changed(skipCSV) {
+    render(); if (!skipCSV) $("csv").value = toCSV();
+    try { localStorage.setItem("qg-state", JSON.stringify(st)); } catch (e) {}
+  }
+  ["title", "sub", "head", "note", "prefix", "suffix", "total", "call", "forecast"].forEach(k => $(k).oninput = e => { cur()[k] = e.target.value; changed(true); });
+  $("periods").oninput = e => { cur().periods = e.target.value; periodOptions(); changed(); };
+  $("period").onchange = e => { cur().period = +e.target.value; changed(true); };
+  ["zero", "smooth", "donut", "labels"].forEach(k => $(k).onchange = e => { cur()[k] = e.target.checked; changed(true); });
+  $("add").onclick = () => { const d = cur(); if (d.shares.length >= MODES[st.mode][1]) return;
+    const i = d.shares.length; d.shares.push({ name: "Share " + (i + 1), vals: d.periods.split(",").map(() => 0).join(", "), color: PAL[i % 24], party: i % 4 }); buildShares(); changed(); };
+  $("apply").onclick = applyCSV;
+  $("sample").onclick = () => { st.m[st.mode] = SAMPLES[st.mode](); sync(); buildShares(); changed(); $("msg").textContent = ""; };
+  $("png").onclick = () => {
+    render();
+    cv.toBlob(b => { if (!b) return; const a = document.createElement("a"); a.href = URL.createObjectURL(b);
+      a.download = "quantumgraph-" + st.mode + "-" + st.graph + ".png";
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); });
+  };
+
+  // ====== Start ======
+  sync(); buildTabs(); buildShares(); vis(); $("csv").value = toCSV(); render();
+  if (document.fonts && document.fonts.load) Promise.all(['800 36px "Bricolage Grotesque"', '600 16px "Instrument Sans"', '400 16px "Instrument Sans"'].map(x => document.fonts.load(x))).then(render).catch(() => {});
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(render);
+})();
+</script>
+</body>
+</html>

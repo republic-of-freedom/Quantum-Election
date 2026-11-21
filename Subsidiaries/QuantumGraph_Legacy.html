@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QuantumGraph Legacy · Election charts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=Instrument+Sans:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    color-scheme: dark;
+    --bg:#0d0f13; --surface:#171a21; --track:#1b1f27; --ink:#f4f5f7; --muted:#9aa1ad; --rule:#272b34;
+    --c0:#f2454f; --c1:#3f7cff; --c2:#f5b83d; --c3:#2fd4b0; --on-c:#0d0f13;
+    --display:"Bricolage Grotesque","Helvetica Neue",Arial,sans-serif;
+    --body:"Instrument Sans","Helvetica Neue",Arial,sans-serif;
+  }
+  html[data-theme="light"] {
+    color-scheme: light;
+    --bg:#f3efe6; --surface:#ebe6d9; --track:#e2dccd; --ink:#1d1b19; --muted:#625c52; --rule:#d8d1c2;
+    --c0:#c8283a; --c1:#2358c9; --c2:#9a6400; --c3:#0e7d68; --on-c:#fff;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; min-height:100vh; display:flex; flex-direction:column; background:var(--bg); color:var(--ink); font:16px/1.4 var(--body); }
+  header { display:flex; align-items:flex-end; justify-content:space-between; gap:24px; padding:20px 32px 14px; }
+  h1 { font:800 32px/1 var(--display); letter-spacing:-.02em; margin:0 0 6px; }
+  .sub { margin:0; color:var(--muted); }
+  .theme { display:inline-flex; border:2px solid var(--ink); }
+  .theme button { font:600 14px var(--body); color:var(--ink); background:transparent; border:0; padding:6px 14px; cursor:pointer; }
+  .theme button[aria-pressed="true"] { background:var(--ink); color:var(--bg); }
+
+  main { flex:1; display:grid; grid-template-columns:400px 1fr; border-top:2px solid var(--rule); min-height:0; }
+  aside { padding:8px 28px 40px; border-right:2px solid var(--rule); overflow-y:auto; max-height:calc(100vh - 84px); }
+  .preview { padding:28px 32px; }
+  canvas { display:block; width:100%; max-width:1280px; aspect-ratio:16/9; border:2px solid var(--rule); background:var(--bg); }
+  .hint { color:var(--muted); font-size:14px; margin:12px 0 0; max-width:640px; }
+
+  h3 { font:800 18px/1 var(--display); letter-spacing:-.01em; margin:26px 0 12px; }
+  label { display:block; margin:0 0 10px; font-size:13px; font-weight:600; color:var(--muted); }
+  input[type=text], input[type=number], textarea {
+    display:block; width:100%; margin-top:4px; font:400 15px var(--body); color:var(--ink);
+    background:var(--surface); border:2px solid var(--rule); border-radius:0; padding:8px 10px;
+  }
+  input:focus-visible, textarea:focus-visible, button:focus-visible { outline:3px solid var(--c1); outline-offset:2px; }
+  textarea { height:120px; resize:vertical; font:13px/1.4 ui-monospace, Menlo, Consolas, monospace; }
+  .two { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .check { display:flex; align-items:center; gap:10px; color:var(--ink); font-size:15px; }
+  .check input { width:18px; height:18px; margin:0; accent-color:var(--ink); }
+
+  .types { display:flex; flex-wrap:wrap; border-bottom:2px solid var(--rule); }
+  .tab { font:800 18px var(--display); letter-spacing:-.01em; color:var(--muted); background:none; border:0; border-bottom:4px solid transparent; margin-bottom:-2px; padding:8px 12px; cursor:pointer; }
+  .tab:hover { color:var(--ink); }
+  .tab[aria-selected="true"] { color:var(--ink); border-bottom-color:var(--ink); }
+
+  .crow, .chead { display:grid; grid-template-columns:14px 1fr 68px 68px 30px; gap:8px; align-items:center; margin-bottom:8px; }
+  .chead { font-size:13px; font-weight:600; color:var(--muted); }
+  .crow i { width:14px; height:34px; background:var(--c); }
+  .crow input { margin:0; padding:7px 8px; }
+  .crow button { border:0; background:none; color:var(--muted); font-size:16px; cursor:pointer; height:34px; }
+  .crow button:hover:not(:disabled) { color:var(--ink); }
+  .crow button:disabled { opacity:.3; cursor:default; }
+
+  .btn { font:600 14px var(--body); color:var(--ink); background:transparent; border:2px solid var(--ink); padding:8px 16px; cursor:pointer; }
+  .btn:hover:not(:disabled) { background:var(--ink); color:var(--bg); }
+  .btn.main { background:var(--ink); color:var(--bg); }
+  .btn.main:hover { background:transparent; color:var(--ink); }
+  .btn:disabled { opacity:.35; cursor:default; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+  #msg { margin:8px 0 0; font-size:14px; color:var(--c0); min-height:20px; }
+
+  @media (max-width:900px) {
+    main { grid-template-columns:1fr; }
+    aside { max-height:none; border-right:0; border-bottom:2px solid var(--rule); order:2; }
+    header { flex-direction:column; align-items:flex-start; padding:16px 20px 12px; }
+    .preview { padding:20px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>QuantumGraph Legacy</h1>
+    <p class="sub">Enter results, pick a chart, and download it as a 1280×720 image.</p>
+  </div>
+  <div class="theme" role="group" aria-label="Color theme">
+    <button type="button" data-theme-btn="light" aria-pressed="false">Light Mode</button>
+    <button type="button" data-theme-btn="dark" aria-pressed="true">Dark Mode</button>
+  </div>
+</header>
+
+<main>
+  <aside>
+    <h3 style="margin-top:18px">Chart type</h3>
+    <div class="types" id="types" role="tablist" aria-label="Chart type"></div>
+
+    <h3>Text</h3>
+    <label>Title<input type="text" id="title"></label>
+    <label>Subtitle<input type="text" id="sub"></label>
+    <label>Race heading<input type="text" id="race"></label>
+    <label>Footer note<input type="text" id="note"></label>
+
+    <h3>Settings</h3>
+    <div class="two">
+      <label>Total votes<input type="number" id="total" min="0"></label>
+      <label>Call above (0 = off)<input type="number" id="call" min="0"></label>
+    </div>
+    <label class="check"><input type="checkbox" id="showPred"> Show predicted turnout</label>
+
+    <h3>Candidates</h3>
+    <div class="chead"><span></span><span>Name</span><span>Votes</span><span>Predicted</span><span></span></div>
+    <div id="cands"></div>
+    <div class="row"><button type="button" class="btn" id="add">Add candidate</button></div>
+
+    <h3>Data as CSV</h3>
+    <textarea id="csv" spellcheck="false" aria-label="CSV data"></textarea>
+    <div class="row"><button type="button" class="btn" id="apply">Apply CSV</button></div>
+    <p id="msg" role="alert"></p>
+
+    <div class="row">
+      <button type="button" class="btn main" id="png">Download PNG</button>
+      <button type="button" class="btn" id="sample">Reset to sample</button>
+    </div>
+  </aside>
+
+  <section class="preview">
+    <canvas id="cv" width="2560" height="1440" role="img" aria-label="Chart preview"></canvas>
+    <p class="hint">The CSV uses the same layout as the election data files: a header row of candidate names, a Total row, and an optional Predicted row.</p>
+  </section>
+</main>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const W = 1280, H = 720, S = 2, MAX = 4;
+  const PAL = {
+    dark:  { bg:"#0d0f13", surface:"#171a21", track:"#1b1f27", ink:"#f4f5f7", muted:"#9aa1ad", rule:"#272b34", on:"#0d0f13", c:["#f2454f","#3f7cff","#f5b83d","#2fd4b0"] },
+    light: { bg:"#f3efe6", surface:"#ebe6d9", track:"#e2dccd", ink:"#1d1b19", muted:"#625c52", rule:"#d8d1c2", on:"#ffffff", c:["#c8283a","#2358c9","#9a6400","#0e7d68"] }
+  };
+  const DISP = '"Bricolage Grotesque","Helvetica Neue",Arial,sans-serif', BODY = '"Instrument Sans","Helvetica Neue",Arial,sans-serif';
+  const TYPES = [["turnout","Turnout"],["bars","Bars"],["donut","Donut"],["columns","Columns"]];
+  const SAMPLE = () => ({ type:"turnout", title:"MMS Election 2026–27", sub:"Voting turnout and predicted turnout for each race",
+    race:"President", note:"All data shown is by Freedom News.", total:700, call:450, showPred:true,
+    cands:[{name:"Candidate A",votes:212,pred:310},{name:"Candidate B",votes:174,pred:268}] });
+
+  let st = null, theme = null;
+  try { st = JSON.parse(localStorage.getItem("cs-state")); } catch (e) {}
+  if (!st || !Array.isArray(st.cands) || !st.cands.length) st = SAMPLE();
+  try { theme = new URLSearchParams(location.search).get("theme") || localStorage.getItem("cs-theme"); } catch (e) {}
+  if (theme !== "light") theme = "dark";
+
+  const cv = $("cv"), g = cv.getContext("2d");
+  const nice = m => { m = Math.max(m, 4); const r = m / 4, mag = Math.pow(10, Math.floor(Math.log10(r)));
+    const step = [1,2,5,10].find(k => k * mag >= r) * mag; return { step, max: step * Math.ceil(m / step) }; };
+
+  // ====== Drawing ======
+  function render() {
+    const P = PAL[theme], col = i => P.c[i % 4];
+    const c = st.cands.map(x => ({ n: x.name || "Candidate", v: Math.max(0, +x.votes || 0), p: Math.max(0, +x.pred || 0) }));
+    const n = c.length, sum = c.reduce((a, d) => a + d.v, 0), psum = c.reduce((a, d) => a + d.p, 0);
+    const mx = Math.max(...c.map(d => d.v)), call = +st.call || 0, total = +st.total || 0, pr = !!st.showPred;
+    const at = c.filter(d => d.v === mx);
+    const lead = mx > 0 && at.length === 1 ? c.findIndex(d => d.v === mx) : -1;
+    const called = call > 0 && mx > call ? c.findIndex(d => d.v === mx) : -1;
+    const pc = v => total > 0 ? Math.round(v / total * 1000) / 10 + "%" : "–";
+
+    g.setTransform(S, 0, 0, S, 0, 0);
+    const R = (x, y, w, h, f) => { g.fillStyle = f; g.fillRect(x, y, w, h); };
+    const T = (s, x, y, f, k, a = "left") => { g.font = f; g.fillStyle = k; g.textAlign = a; g.textBaseline = "alphabetic"; g.fillText(String(s), x, y); };
+    const fit = (s, f, w) => { g.font = f; if (g.measureText(s).width <= w) return s; while (s.length > 1 && g.measureText(s + "…").width > w) s = s.slice(0, -1); return s + "…"; };
+    const hatch = (x, y, w, h, k) => {
+      g.save(); g.beginPath(); g.rect(x, y, w, h); g.clip();
+      g.globalAlpha = .8; g.fillStyle = k; g.fillRect(x, y, w, h); g.globalAlpha = 1;
+      g.strokeStyle = "rgba(0,0,0,.28)"; g.lineWidth = 2; g.beginPath();
+      for (let q = -h; q < w; q += 9) { g.moveTo(x + q, y + h); g.lineTo(x + q + h, y); }
+      g.stroke(); g.restore();
+    };
+    const track = (x, y, w, h, vals, denom, pred) => {
+      R(x, y, w, h, P.track); g.save(); g.beginPath(); g.rect(x, y, w, h); g.clip();
+      let cx = x, seen = false;
+      vals.forEach((v, i) => {
+        const sw = v / denom * w; if (sw <= 0) return;
+        pred ? hatch(cx, y, sw, h, col(i)) : R(cx, y, sw, h, col(i));
+        if (seen) R(cx, y, 3, h, P.bg);
+        seen = true;
+        if (v / denom >= .07) T(v, cx + (pred ? 10 : 14), y + h / 2 + (pred ? 6 : 8), `800 ${pred ? 16 : 24}px ${DISP}`, P.on);
+        cx += sw;
+      });
+      g.restore();
+    };
+    const chip = (x, y, label, k) => { g.font = `600 15px ${BODY}`; const w = g.measureText(label).width + 24;
+      R(x - w, y, w, 26, k); T(label, x - w / 2, y + 19, `600 15px ${BODY}`, P.on, "center"); return w; };
+    const cards = (y0, h) => {
+      const gap = 20, w = (1200 - gap * (n - 1)) / n, big = n > 2 ? 84 : 120, nf = n > 2 ? 21 : 26;
+      c.forEach((d, i) => {
+        const x = 40 + i * (w + gap);
+        R(x, y0, w, h, P.surface); R(x, y0, 12, h, col(i));
+        const label = called >= 0 ? "Winner" : n === 1 ? "Unopposed" : "Leading";
+        let cw = 0;
+        if (n === 1 || (called >= 0 ? called : lead) === i) cw = chip(x + w - 22, y0 + 20, label, col(i)) + 12;
+        T(fit(d.n, `600 ${nf}px ${BODY}`, w - 60 - cw), x + 38, y0 + 40, `600 ${nf}px ${BODY}`, P.ink);
+        T(d.v, x + 38, y0 + h / 2 + big * .3, `800 ${big}px ${DISP}`, P.ink);
+        const foot = sum ? (d.v / sum * 100).toFixed(1) + "% of votes counted" : "No votes yet";
+        if (pr) { T(foot, x + 38, y0 + h - 50, `600 18px ${BODY}`, P.muted); T("Predicted: " + d.p + (d.p === 1 ? " vote" : " votes"), x + 38, y0 + h - 24, `600 18px ${BODY}`, P.muted); }
+        else T(foot, x + 38, y0 + h - 24, `600 18px ${BODY}`, P.muted);
+      });
+    };
+
+    // Frame, header, status
+    R(0, 0, W, H, P.bg);
+    T(fit(st.title, `800 36px ${DISP}`, 1200), 40, 62, `800 36px ${DISP}`, P.ink);
+    T(fit(st.sub, `400 16px ${BODY}`, 1200), 40, 90, `400 16px ${BODY}`, P.muted);
+    R(40, 112, 1200, 2, P.rule);
+    let status;
+    if (called >= 0) status = `${c[called].n} is called as the winner.`;
+    else if (n === 1) status = `${c[0].n} is running unopposed.`;
+    else if (sum === 0) status = "No votes have been counted yet.";
+    else if (lead < 0) { const t = c.filter(d => d.v === mx).map(d => d.n); status = t.length === n && n === 2 ? `Tied at ${mx} votes each.` : "Tied between " + t.join(" and ") + "."; }
+    else { const diff = c[lead].v - Math.max(...c.filter((_, i) => i !== lead).map(d => d.v)); status = `${c[lead].n} leads by ${diff} ${diff === 1 ? "vote" : "votes"}.`; }
+    g.font = `600 22px ${BODY}`;
+    const sw = Math.min(g.measureText(status).width, 640);
+    const stx = fit(status, `600 22px ${BODY}`, 640);
+    if (called >= 0) { R(1240 - sw - 32, 134, sw + 32, 42, col(called)); T(stx, 1224, 164, `600 22px ${BODY}`, P.on, "right"); }
+    else T(stx, 1240, 164, `600 22px ${BODY}`, P.ink, "right");
+    T(fit(st.race, `800 42px ${DISP}`, 1240 - 40 - sw - 60), 40, 168, `800 42px ${DISP}`, P.ink);
+    R(40, 676, 1200, 1, P.rule);
+    T(fit(st.note, `400 13px ${BODY}`, 1200), 40, 702, `400 13px ${BODY}`, P.muted);
+
+    // ---- Turnout: stacked bars + cards ----
+    if (st.type === "turnout") {
+      const denom = Math.max(total, sum, psum, 1), x = 246, w = 994, y1 = 222, h1 = 52, y2 = 284, h2 = 42;
+      const lab = (y, h, a, b) => { T(a, 40, y + h / 2 - 1, `600 16px ${BODY}`, P.ink); T(b, 40, y + h / 2 + 17, `400 14px ${BODY}`, P.muted); };
+      lab(y1, h1, "Voting turnout", `${sum} of ${total} (${pc(sum)})`);
+      track(x, y1, w, h1, c.map(d => d.v), denom, false);
+      if (pr) { lab(y2, h2, "Predicted turnout", `${psum} of ${total} (${pc(psum)})`); track(x, y2, w, h2, c.map(d => d.p), denom, true); }
+      if (call > 0 && call <= denom) {
+        const m = x + call / denom * w, end = (pr ? y2 + h2 : y1 + h1) + 4;
+        R(m - 1, 212, 2, end - 212, P.ink);
+        T(`Over ${call} calls the race`, Math.min(Math.max(m, 340), 1150), 206, `600 14px ${BODY}`, P.muted, "center");
+      }
+      cards(pr ? 350 : 300, pr ? 300 : 350);
+    }
+
+    // ---- Horizontal bars ----
+    if (st.type === "bars") {
+      const top = 226, area = 424, rh = Math.min(150, area / n), x0 = 300, bw = 820;
+      const nm = nice(Math.max(...c.map(d => d.v), ...(pr ? c.map(d => d.p) : [0]), call));
+      c.forEach((d, i) => {
+        const ry = top + i * rh, ah = rh * .38, ph = rh * .2, y1 = ry + rh * .1, y2 = y1 + ah + rh * .06;
+        T(fit(d.n, `600 24px ${BODY}`, 240), 40, y1 + ah * .68, `600 24px ${BODY}`, P.ink);
+        T(sum ? (d.v / sum * 100).toFixed(1) + "% of counted" : "No votes yet", 40, y1 + ah * .68 + 24, `400 15px ${BODY}`, P.muted);
+        R(x0, y1, bw, ah, P.track); R(x0, y1, d.v / nm.max * bw, ah, col(i));
+        if (pr) { R(x0, y2, bw, ph, P.track); if (d.p > 0) hatch(x0, y2, d.p / nm.max * bw, ph, col(i)); }
+        T(d.v, 1240, y1 + ah * .82, `800 ${Math.min(44, ah * .9)}px ${DISP}`, P.ink, "right");
+        if (pr) T("Predicted " + d.p, 1240, y2 + ph * .85, `600 15px ${BODY}`, P.muted, "right");
+      });
+      R(x0, top - 6, 2, rh * n + 6, P.rule);
+      if (call > 0 && call <= nm.max) { const m = x0 + call / nm.max * bw; R(m - 1, top - 10, 2, rh * n + 10, P.ink);
+        T(`Over ${call} calls the race`, Math.min(m, 1100), top - 16, `600 14px ${BODY}`, P.muted, "center"); }
+    }
+
+    // ---- Donut ----
+    if (st.type === "donut") {
+      const cx = 380, cy = 424, th = 64, rr = 200 - th / 2, rem = Math.max(0, total - sum);
+      const segs = c.map((d, i) => [d.v, col(i)]); if (rem > 0) segs.push([rem, P.track]);
+      const all = segs.reduce((a, s) => a + s[0], 0);
+      g.lineWidth = th;
+      if (!all) { g.strokeStyle = P.track; g.beginPath(); g.arc(cx, cy, rr, 0, Math.PI * 2); g.stroke(); }
+      else {
+        let a = -Math.PI / 2; const edges = [];
+        segs.forEach(([v, k]) => { const b = a + v / all * Math.PI * 2; g.strokeStyle = k; g.beginPath(); g.arc(cx, cy, rr, a, b); g.stroke(); if (v > 0) edges.push(a); a = b; });
+        if (edges.length > 1) { g.strokeStyle = P.bg; g.lineWidth = 3;
+          edges.forEach(e => { g.beginPath(); g.moveTo(cx + (rr - th / 2 - 1) * Math.cos(e), cy + (rr - th / 2 - 1) * Math.sin(e)); g.lineTo(cx + (rr + th / 2 + 1) * Math.cos(e), cy + (rr + th / 2 + 1) * Math.sin(e)); g.stroke(); }); }
+      }
+      T(sum, cx, cy + 26, `800 84px ${DISP}`, P.ink, "center");
+      T(`of ${total} votes counted`, cx, cy + 58, `600 16px ${BODY}`, P.muted, "center");
+      const gap = 16, h = Math.min(96, (424 - gap * (n - 1)) / n), w = 480, y0 = cy - (n * h + (n - 1) * gap) / 2;
+      c.forEach((d, i) => {
+        const x = 760, y = y0 + i * (h + gap);
+        R(x, y, w, h, P.surface); R(x, y, 12, h, col(i));
+        T(fit(d.n, `600 ${n > 3 ? 20 : 24}px ${BODY}`, 290), x + 34, y + h * .42, `600 ${n > 3 ? 20 : 24}px ${BODY}`, P.ink);
+        T((sum ? (d.v / sum * 100).toFixed(1) + "% of votes counted" : "No votes yet") + (pr ? ` · Predicted ${d.p}` : ""), x + 34, y + h - 16, `400 15px ${BODY}`, P.muted);
+        T(d.v, x + w - 24, y + h / 2 + 16, `800 ${Math.min(44, h * .5)}px ${DISP}`, P.ink, "right");
+      });
+    }
+
+    // ---- Grouped columns ----
+    if (st.type === "columns") {
+      const L = 100, Rr = 1240, top = 244, base = 610;
+      const nm = nice(Math.max(...c.map(d => d.v), ...(pr ? c.map(d => d.p) : [0]), call));
+      const Y = v => base - v / nm.max * (base - top);
+      for (let v = 0; v <= nm.max; v += nm.step) { R(L, Y(v), Rr - L, 1, P.rule); T(v, L - 12, Y(v) + 5, `600 13px ${BODY}`, P.muted, "right"); }
+      const gw = (Rr - L) / n, bw = Math.min(120, gw * .3), pair = pr ? bw * 2 + 10 : bw;
+      c.forEach((d, i) => {
+        const gx = L + gw * i + (gw - pair) / 2;
+        R(gx, Y(d.v), bw, base - Y(d.v), col(i));
+        T(d.v, gx + bw / 2, Y(d.v) - 10, `800 28px ${DISP}`, P.ink, "center");
+        if (pr) { hatch(gx + bw + 10, Y(d.p), bw, base - Y(d.p), col(i)); T(d.p, gx + bw * 1.5 + 10, Y(d.p) - 10, `800 28px ${DISP}`, P.muted, "center"); }
+        T(fit(d.n, `600 22px ${BODY}`, gw - 20), L + gw * (i + .5), base + 38, `600 22px ${BODY}`, P.ink, "center");
+      });
+      R(L, base, Rr - L, 2, P.ink);
+      if (call > 0 && call <= nm.max) { g.save(); g.setLineDash([8, 6]); g.fillStyle = P.ink; for (let q = L; q < Rr; q += 14) g.fillRect(q, Y(call) - 1, 8, 2); g.restore();
+        T(`Over ${call} calls the race`, Rr, Y(call) - 10, `600 14px ${BODY}`, P.muted, "right"); }
+      R(L, 200, 14, 14, P.muted); T("Counted", L + 22, 212, `600 14px ${BODY}`, P.muted);
+      if (pr) { hatch(L + 110, 200, 14, 14, P.muted); T("Predicted", L + 132, 212, `600 14px ${BODY}`, P.muted); }
+    }
+  }
+
+  // ====== CSV ======
+  const q = s => /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  function toCSV() {
+    const lines = ["," + st.cands.map(d => q(d.name || "")).join(","), "Total," + st.cands.map(d => +d.votes || 0).join(",")];
+    if (st.showPred) lines.push("Predicted," + st.cands.map(d => +d.pred || 0).join(","));
+    return lines.join("\n");
+  }
+  function parseCSV(text) {
+    const rows = []; let row = [], cell = "", inq = false;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (inq) { if (ch === '"' && text[i + 1] === '"') { cell += '"'; i++; } else if (ch === '"') inq = false; else cell += ch; }
+      else if (ch === '"') inq = true;
+      else if (ch === ",") { row.push(cell); cell = ""; }
+      else if (ch === "\n" || ch === "\r") { if (ch === "\r" && text[i + 1] === "\n") i++; row.push(cell); rows.push(row); row = []; cell = ""; }
+      else cell += ch;
+    }
+    if (cell !== "" || row.length) { row.push(cell); rows.push(row); }
+    return rows.filter(r => r.some(c => c.trim() !== ""));
+  }
+  function applyCSV() {
+    const msg = $("msg"); msg.textContent = "";
+    try {
+      const rows = parseCSV($("csv").value);
+      if (rows.length < 2) throw new Error("Add a header row and at least one data row.");
+      const names = rows[0].slice(1, 1 + MAX).map(h => h.trim()).filter(Boolean);
+      if (!names.length) throw new Error("The header row needs at least one candidate name after the first comma.");
+      const nums = r => names.map((_, i) => Number(r[i + 1]) || 0);
+      const lab = r => (r[0] || "").trim();
+      const body = rows.slice(1);
+      const pRow = body.find(r => /^predict(ed|ion)?s?$/i.test(lab(r)));
+      const tRow = body.find(r => /^(total|overall)s?$/i.test(lab(r)));
+      const rest = body.filter(r => r !== pRow && r !== tRow);
+      const votes = tRow ? nums(tRow) : names.map((_, i) => rest.reduce((s, r) => s + (Number(r[i + 1]) || 0), 0));
+      const pred = pRow ? nums(pRow) : names.map(() => 0);
+      st.cands = names.map((name, i) => ({ name, votes: votes[i], pred: pred[i] }));
+      st.showPred = !!pRow;
+      sync(); buildRows(); changed(true);
+    } catch (e) { msg.textContent = e.message; }
+  }
+
+  // ====== Form ======
+  function buildRows() {
+    const box = $("cands"); box.innerHTML = "";
+    st.cands.forEach((d, i) => {
+      const r = document.createElement("div"); r.className = "crow";
+      r.innerHTML = '<i></i><input type="text" aria-label="Candidate name"><input type="number" min="0" aria-label="Votes"><input type="number" min="0" aria-label="Predicted votes"><button type="button" aria-label="Remove candidate">✕</button>';
+      r.firstChild.style.setProperty("--c", "var(--c" + (i % 4) + ")");
+      const [, nm, v, p, x] = r.children;
+      nm.value = d.name; v.value = d.votes; p.value = d.pred;
+      nm.oninput = () => { d.name = nm.value; changed(); };
+      v.oninput = () => { d.votes = v.value; changed(); };
+      p.oninput = () => { d.pred = p.value; changed(); };
+      x.disabled = st.cands.length <= 1;
+      x.onclick = () => { st.cands.splice(i, 1); buildRows(); changed(); };
+      box.appendChild(r);
+    });
+    $("add").disabled = st.cands.length >= MAX;
+  }
+  function sync() { ["title", "sub", "race", "note", "total", "call"].forEach(k => $(k).value = st[k]); $("showPred").checked = !!st.showPred; }
+  function buildTypes() {
+    const box = $("types"); box.innerHTML = "";
+    TYPES.forEach(([id, label]) => {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "tab"; b.textContent = label; b.setAttribute("role", "tab");
+      b.setAttribute("aria-selected", String(st.type === id));
+      b.onclick = () => { st.type = id; buildTypes(); changed(); };
+      box.appendChild(b);
+    });
+  }
+  function changed(skipCSV) {
+    render(); if (!skipCSV) $("csv").value = toCSV();
+    try { localStorage.setItem("cs-state", JSON.stringify(st)); } catch (e) {}
+  }
+  ["title", "sub", "race", "note"].forEach(k => $(k).oninput = e => { st[k] = e.target.value; changed(); });
+  ["total", "call"].forEach(k => $(k).oninput = e => { st[k] = e.target.value; changed(); });
+  $("showPred").onchange = e => { st.showPred = e.target.checked; changed(); };
+  $("add").onclick = () => { if (st.cands.length < MAX) { st.cands.push({ name: "Candidate " + String.fromCharCode(65 + st.cands.length), votes: 0, pred: 0 }); buildRows(); changed(); } };
+  $("apply").onclick = applyCSV;
+  $("sample").onclick = () => { st = SAMPLE(); sync(); buildTypes(); buildRows(); changed(); $("msg").textContent = ""; };
+  $("png").onclick = () => {
+    render();
+    cv.toBlob(b => { if (!b) return; const a = document.createElement("a"); a.href = URL.createObjectURL(b);
+      a.download = ((st.race || "chart").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "chart") + "-" + st.type + ".png";
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); });
+  };
+
+  // ====== Theme ======
+  function setTheme(t, save) {
+    theme = t; document.documentElement.setAttribute("data-theme", t);
+    document.querySelectorAll("[data-theme-btn]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.themeBtn === t)));
+    if (save) { try { localStorage.setItem("cs-theme", t); } catch (e) {} }
+    render();
+  }
+  document.querySelectorAll("[data-theme-btn]").forEach(b => b.onclick = () => setTheme(b.dataset.themeBtn, true));
+
+  // ====== Start ======
+  sync(); buildTypes(); buildRows(); $("csv").value = toCSV(); setTheme(theme, false);
+  const fonts = ['800 36px "Bricolage Grotesque"', '600 16px "Instrument Sans"', '400 16px "Instrument Sans"'];
+  if (document.fonts && document.fonts.load) Promise.all(fonts.map(f => document.fonts.load(f))).then(render).catch(() => {});
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(render);
+})();
+</script>
+</body>
+</html>
