@@ -48,7 +48,7 @@
   .tab { font:800 18px var(--display); letter-spacing:-.01em; color:var(--muted); background:none; border:0; border-bottom:4px solid transparent; margin-bottom:-2px; padding:8px 12px; cursor:pointer; }
   .tab:hover { color:var(--ink); }
   .tab[aria-selected="true"] { color:var(--ink); border-bottom-color:var(--ink); }
-  .tabs.big .tab { font-size:22px; padding:10px 18px; }
+  .tabs.big .tab { font-size:19px; padding:10px 12px; }
 
   .srow { background:var(--surface); padding:10px; margin-bottom:8px; }
   .sline { display:flex; gap:8px; align-items:center; }
@@ -60,6 +60,10 @@
   .sline button:hover:not(:disabled) { color:var(--ink); }
   .sline button:disabled { opacity:.3; cursor:default; }
   .srow > input { margin-top:8px; }
+  .srow textarea { height:64px; margin-top:8px; }
+  .srow textarea.tall { height:112px; }
+  .sline.sel select { flex:1; width:auto; }
+  .sline b { font:800 15px var(--display); }
 
   .btn { font:600 14px var(--body); color:var(--ink); background:transparent; border:2px solid var(--ink); padding:8px 16px; cursor:pointer; }
   .btn:hover:not(:disabled) { background:var(--ink); color:var(--bg); }
@@ -91,8 +95,10 @@
     <h3 style="margin-top:18px">Mode <span id="modeNote"></span></h3>
     <div class="tabs big" id="modes" role="tablist" aria-label="Mode"></div>
 
+    <div id="gbox">
     <h3>Graph type</h3>
     <div class="tabs" id="graphs" role="tablist" aria-label="Graph type"></div>
+    </div>
 
     <h3>Text</h3>
     <label>Title<input type="text" id="title"></label>
@@ -100,22 +106,32 @@
     <label>Chart heading<input type="text" id="head"></label>
     <label>Footer note<input type="text" id="note"></label>
 
+    <div class="nm">
     <h3>Settings</h3>
     <div class="two">
       <label>Value prefix<input type="text" id="prefix" placeholder="$"></label>
       <label>Value suffix<input type="text" id="suffix" placeholder="%"></label>
     </div>
+    <div class="two" data-g="bar trend line scatter hybrid">
+      <label>X-axis title<input type="text" id="xlabel"></label>
+      <label>Y-axis title<input type="text" id="ylabel"></label>
+    </div>
+    <label data-g="bar">Bar style<select id="barStyle"><option value="single">Standard (one period)</option><option value="stacked">Stacked Bar (periods on x-axis)</option></select></label>
     <label data-g="bar pie">Period shown<select id="period"></select></label>
     <div class="two" data-m="votes">
       <label>Total votes<input type="number" id="total" min="0"></label>
       <label>Call above (0 = off)<input type="number" id="call" min="0"></label>
     </div>
     <label data-g="trend">Forecast periods (0–6)<input type="number" id="forecast" min="0" max="6"></label>
+    <label data-g="trend">Trend fit<select id="fit"><option value="linear">Linear</option><option value="quad">Quadratic</option><option value="exp">Exponential</option><option value="pow">Power law</option></select></label>
     <div class="checks">
       <label class="check"><input type="checkbox" id="labels"> Value labels</label>
-      <label class="check" data-g="line trend scatter"><input type="checkbox" id="zero"> Start at zero</label>
+      <label class="check" data-g="line trend scatter hybrid"><input type="checkbox" id="zero"> Start at zero</label>
       <label class="check" data-g="line"><input type="checkbox" id="smooth"> Smooth lines</label>
       <label class="check" data-g="pie"><input type="checkbox" id="donut"> Donut hole</label>
+      <label class="check" data-m="sci hybrid"><input type="checkbox" id="sci"> Scientific notation</label>
+      <label class="check" data-m="sci"><input type="checkbox" id="logy"> Log y-axis</label>
+      <label class="check" data-m="sci"><input type="checkbox" id="logx"> Log x-axis</label>
     </div>
 
     <h3>Periods</h3>
@@ -129,6 +145,14 @@
     <textarea id="csv" spellcheck="false" aria-label="CSV data"></textarea>
     <div class="row"><button type="button" class="btn" id="apply">Apply CSV</button></div>
     <p id="msg" role="alert"></p>
+    </div>
+    <div class="ym" hidden>
+      <h3>Problems <span id="mcnt"></span></h3>
+      <label>Problem shown<select id="mathsel"></select></label>
+      <div id="items"></div>
+      <div class="row"><button type="button" class="btn" id="addItem">Add problem</button></div>
+      <p class="hint">Put math inside $…$ in the problem. Each step is one line: <code>caption :: LaTeX</code>. Supported: \frac, ^, _, \sqrt[n]{ }, \int, \sum, \prod, \lim, \left( \right), \boxed, \text{ }, Greek letters, \pm, \cdot, \le, \ge, \to, \infty, \quad and more.</p>
+    </div>
 
     <div class="row">
       <button type="button" class="btn main" id="png">Download PNG</button>
@@ -150,13 +174,15 @@
   const DISP = '"Bricolage Grotesque","Helvetica Neue",Arial,sans-serif', BODY = '"Instrument Sans","Helvetica Neue",Arial,sans-serif';
   const PARTIES = [["Republican","#f2454f"],["Democrat","#3f7cff"],["Independent","#f5b83d"],["Libertarian","#2fd4b0"]];
   const PAL = ["#3f7cff","#f5b83d","#2fd4b0","#f2454f","#a06bff","#ff8a3d","#4cc9f0","#9be564","#ff5fa2","#c9a227","#00b894","#e17055","#6c8cff","#ffd166","#06d6a0","#ef476f","#b388ff","#ff9f1c","#2ec4b6","#e5383b","#7bdff2","#b2f7ef","#f7aef8","#cdb4db"];
-  const MODES = { data:["Data",12,"up to 12 shares, custom colors"], votes:["Votes",4,"up to 4 shares, party colors"], other:["Other",24,"up to 24 shares, custom colors"] };
+  const MODES = { data:["Data",12,"up to 12 shares, custom colors"], votes:["Votes",4,"up to 4 shares, party colors"], other:["Other",24,"up to 24 shares, custom colors"],
+    sci:["Scientific",12,"error bars, log axes, curve fits"], hybrid:["Hybrid",12,"mix chart types, colors and axes"], math:["Math",0,"problems and solutions"] };
   const GRAPHS = [["bar","Vertical Bar"],["trend","Trend"],["line","Line"],["scatter","Scatter"],["pie","Pie"]];
   const nf = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
   const cf = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 });
 
   const sh = (rows) => rows.map(([name, vals], i) => ({ name, vals, color: PAL[i], party: i % 4 }));
-  const base = o => Object.assign({ prefix:"", suffix:"", period:-1, zero:true, smooth:false, donut:false, labels:true, forecast:2, total:0, call:0, note:"" }, o);
+  const base = o => Object.assign({ prefix:"", suffix:"", period:-1, zero:true, smooth:false, donut:false, labels:true, forecast:2, total:0, call:0, note:"",
+    xlabel:"", ylabel:"", logx:false, logy:false, sci:false, fit:"linear", barStyle:"single", sel:0, periods:"", shares:[] }, o);
   const SAMPLES = {
     data: () => base({ title:"Production Output", sub:"Units produced by line", head:"Units per month", periods:"Jan, Feb, Mar, Apr, May, Jun",
       shares: sh([["Alpha","120, 150, 180, 175, 210, 240"],["Bravo","90, 95, 130, 160, 150, 190"],["Charlie","60, 80, 70, 95, 110, 105"],["Delta","140, 130, 125, 120, 118, 110"],["Echo","30, 45, 60, 80, 105, 135"]]) }),
@@ -165,24 +191,48 @@
     other: () => base({ title:"Growth Index", sub:"Eight series, numeric years", head:"Index by year", periods:"2019, 2020, 2021, 2022, 2023, 2024",
       shares: sh([["North","40, 44, 52, 61, 70, 84"],["South","55, 50, 58, 66, 69, 77"],["East","30, 36, 41, 39, 48, 57"],["West","70, 66, 72, 80, 78, 91"],["Central","20, 28, 35, 46, 60, 73"],["Coastal","48, 52, 49, 55, 63, 66"],["Inland","38, 35, 33, 37, 40, 42"],["Islands","12, 15, 22, 28, 31, 45"]]) })
   };
-  const fresh = () => ({ mode:"data", graph:"bar", m:{ data:SAMPLES.data(), votes:SAMPLES.votes(), other:SAMPLES.other() } });
+  SAMPLES.sci = () => base({ title:"Radioactive Decay", sub:"Activity with ±1σ error bars and an exponential fit", head:"Sample activity", xlabel:"Time (min)", ylabel:"Activity (counts/min)",
+    periods:"0, 1, 2, 3, 4, 5, 6, 7, 8", logy:true, fit:"exp", forecast:2,
+    shares:[{ name:"Sample A", vals:"1000, 610, 372, 226, 138, 84, 51, 31, 19", err:"32, 25, 19, 15, 12, 9, 7, 6, 4", color:PAL[0], party:0 },
+            { name:"Sample B", vals:"800, 520, 340, 220, 145, 95, 62, 40, 26", err:"28, 23, 18, 15, 12, 10, 8, 6, 5", color:PAL[1], party:1 }] });
+  SAMPLES.hybrid = () => base({ title:"Revenue vs Margin", sub:"Bars, a line and scatter points on two axes", head:"Quarterly performance", ylabel:"Revenue and cost ($k)", periods:"Q1, Q2, Q3, Q4, Q5, Q6",
+    shares:[["Revenue","120, 140, 135, 170, 190, 210","bar","L",0],["Cost","90, 100, 110, 120, 130, 135","bar","L",1],["Margin %","25, 28.6, 18.5, 29.4, 31.6, 35.7","line","R",2],["Target","130, 145, 150, 165, 180, 200","scatter","L",3]]
+      .map(([name, vals, type, axis, c]) => ({ name, vals, type, axis, color:PAL[c], party:0 })) });
+  SAMPLES.math = () => base({ title:"Worked Solutions", sub:"Problems with step-by-step answers", head:"Algebra and calculus", items:[
+    { q:String.raw`Solve for $x$:  $2x^2 - 5x - 3 = 0$`, a:String.raw`x = 3 \quad\text{or}\quad x = -\frac{1}{2}`, steps:[
+      String.raw`Quadratic formula :: x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}`,
+      String.raw`Substitute a, b, c :: x = \frac{5 \pm \sqrt{(-5)^2 - 4(2)(-3)}}{2(2)}`,
+      String.raw`Simplify :: x = \frac{5 \pm \sqrt{49}}{4} = \frac{5 \pm 7}{4}`,
+      String.raw`Split the cases :: x = \frac{12}{4} = 3 \quad\text{or}\quad x = \frac{-2}{4} = -\frac{1}{2}`].join("\n") },
+    { q:String.raw`Evaluate the definite integral $\int_0^{\pi} \sin x \, dx$`, a:String.raw`\int_0^{\pi} \sin x \, dx = 2`, steps:[
+      String.raw`Antiderivative :: \int \sin x \, dx = -\cos x + C`,
+      String.raw`Apply the limits :: \left[ -\cos x \right]_0^{\pi} = -\cos\pi - (-\cos 0)`,
+      String.raw`Evaluate :: = -(-1) - (-1) = 2`].join("\n") },
+    { q:String.raw`Find the sum $\sum_{n=1}^{\infty} \frac{1}{2^n}$`, a:String.raw`\boxed{S = 1}`, steps:[
+      String.raw`Geometric series :: a = \frac{1}{2}, \quad r = \frac{1}{2}`,
+      String.raw`Use S = a / (1 − r) :: S = \frac{a}{1 - r}`,
+      String.raw`Substitute :: S = \frac{1/2}{1 - 1/2} = 1`].join("\n") }] });
+  const fresh = () => ({ mode:"data", graph:"bar", m:Object.fromEntries(Object.keys(MODES).map(k => [k, SAMPLES[k]()])) });
   let st = null;
   try { st = JSON.parse(localStorage.getItem("qg-state")); } catch (e) {}
-  if (!st || !st.m || !st.m.data || !st.m.votes || !st.m.other || !MODES[st.mode]) st = fresh();
+  if (!st || !st.m || !MODES[st.mode]) st = fresh();
+  Object.keys(MODES).forEach(k => { st.m[k] = Object.assign(base({}), st.m[k] || SAMPLES[k]()); });
   const cur = () => st.m[st.mode];
 
   // ====== Drawing ======
   const cv = $("cv"), g = cv.getContext("2d");
   function render() {
-    const d = cur(), votes = st.mode === "votes", G = st.graph;
+    const d = cur(), votes = st.mode === "votes", math = st.mode === "math", G = st.mode === "hybrid" ? "hybrid" : st.graph;
     const pers = d.periods.split(",").map(s => s.trim()).filter(Boolean), np = pers.length;
     const rs = d.shares.map((s, i) => { const a = String(s.vals).split(",").map(parseFloat);
-      return { n: s.name || "Share " + (i + 1), k: votes ? PARTIES[s.party % 4][1] : s.color, v: pers.map((_, j) => isFinite(a[j]) ? a[j] : 0) }; });
+      return { n: (s.name || "Share " + (i + 1)) + (G === "hybrid" && s.axis === "R" ? " (R)" : ""), k: votes ? PARTIES[s.party % 4][1] : s.color, v: pers.map((_, j) => isFinite(a[j]) ? a[j] : 0),
+        e: pers.map((_, j) => Math.abs(parseFloat(String(s.err || "").split(",")[j])) || 0), t: s.type || "line", ax: s.axis === "R" ? "R" : "L" }; });
     const n = rs.length, pi = +d.period, pidx = pi >= 0 && pi < np ? pi : np - 1;
     const val = s => pi === -2 ? s.v.reduce((a, b) => a + b, 0) : (s.v[pidx] || 0);
     const plabel = pi === -2 ? "All periods combined" : (pers[pidx] || "–");
-    const f = v => d.prefix + nf.format(v) + d.suffix;
-    const fa = v => d.prefix + (Math.abs(v) >= 10000 ? cf.format(v) : nf.format(v)) + d.suffix;
+    const sf = v => { if (!v) return "0"; const [m, e] = v.toExponential(2).split("e"); return +e === 0 ? String(+m) : (+m) + "×10" + sup(+e); };
+    const f = v => d.prefix + (d.sci ? sf(v) : nf.format(v)) + d.suffix;
+    const fa = v => d.prefix + (d.sci ? sf(v) : Math.abs(v) >= 10000 ? cf.format(v) : nf.format(v)) + d.suffix;
     const vals = rs.map(val), vsum = vals.reduce((a, b) => a + b, 0), mx = Math.max(...vals);
     const call = +d.call || 0, total = +d.total || 0;
     const lead = mx > 0 && vals.filter(v => v === mx).length === 1 ? vals.indexOf(mx) : -1;
@@ -206,7 +256,8 @@
     T(fit(d.sub, `400 16px ${BODY}`, 1200), 40, 90, `400 16px ${BODY}`, P.muted);
     R(40, 112, 1200, 2, P.rule);
     let status = "";
-    if (called >= 0) status = `${rs[called].n} is called as the winner.`;
+    if (math) status = `Problem ${Math.max(0, Math.min(+d.sel || 0, d.items.length - 1)) + 1} of ${d.items.length}`;
+    else if (called >= 0) status = `${rs[called].n} is called as the winner.`;
     else if (votes && n === 1) status = `${rs[0].n} is running unopposed.`;
     else if (votes && vsum === 0) status = "No votes have been counted yet.";
     else if (votes && lead < 0) { const t = rs.filter((_, i) => vals[i] === mx).map(r => r.n); status = "Tied between " + t.join(" and ") + "."; }
@@ -222,6 +273,8 @@
     const bw0 = (g.font = `600 13px ${BODY}`, g.measureText("QuantumGraph by Nitrogen LLC").width);
     T("QuantumGraph by Nitrogen LLC", 1240, 702, `600 13px ${BODY}`, P.muted, "right");
     PARTIES.forEach(([, c], i) => R(1240 - bw0 - 24 + (i % 2) * 7, 691 + Math.floor(i / 2) * 7, 5, 5, c));
+
+    if (math) return drawMath(d, R, T, fit);
 
     // Legend
     {
@@ -244,7 +297,18 @@
       });
     }
 
-    const PL = 110, PR = 950, PT = 216, PB = 618;
+    const PL = 120, PR = 950, PT = 216, PB = 618;
+    if (G !== "pie") {
+      if (d.ylabel) { g.save(); g.translate(30, (PT + PB) / 2); g.rotate(-Math.PI / 2); T(fit(d.ylabel, `600 14px ${BODY}`, 380), 0, 0, `600 14px ${BODY}`, P.muted, "center"); g.restore(); }
+      if (d.xlabel) T(fit(d.xlabel, `600 14px ${BODY}`, 700), (PL + PR) / 2, PB + 52, `600 14px ${BODY}`, P.muted, "center");
+    }
+    const numX = ["line", "trend", "scatter"].includes(G) && np > 0 && pers.every(p => isFinite(+p)) && (G !== "line" || st.mode === "sci");
+    const eb = (x, y1, y2) => { R(x - 1, Math.min(y1, y2), 2, Math.abs(y1 - y2), P.ink); [y1, y2].forEach(y => R(x - 7, y - 1, 14, 2, P.ink)); };
+    const mkR = (vs, log, zero) => { const v = vs.filter(x => isFinite(x) && (!log || x > 0)); if (!v.length) return range(0, 1, false);
+      const lo = Math.min(...v), hi = Math.max(...v);
+      if (log) { const a = Math.floor(Math.log10(lo)), b = Math.ceil(Math.log10(hi)); return { log: true, min: a, max: b > a ? b : a + 1, step: 1 }; }
+      return range(lo, hi, zero); };
+    const tk = r => { const o = []; for (let i = 0, k = Math.round((r.max - r.min) / r.step); i <= k; i++) o.push(r.min + i * r.step); return o; };
     const grid = r => {
       const Y = v => PB - (v - r.min) / (r.max - r.min) * (PB - PT), k = Math.round((r.max - r.min) / r.step);
       for (let i = 0; i <= k; i++) { const v = r.min + i * r.step; R(PL, Y(v), PR - PL, 1, P.rule); T(fa(v), PL - 12, Y(v) + 5, `600 13px ${BODY}`, P.muted, "right"); }
@@ -255,8 +319,28 @@
       for (let q = PL; q < PR; q += 14) R(q, Y(call) - 1, 8, 2, P.ink);
       T(`Over ${nf.format(call)} calls the race`, PR, Y(call) - 8, `600 13px ${BODY}`, P.muted, "right"); } };
 
+    // ---- Stacked bar ----
+    if (G === "bar" && d.barStyle === "stacked") {
+      if (!np || !n) return msg("Add a period and a share to draw this chart.");
+      const tots = pers.map((_, j) => rs.reduce((a, s) => a + Math.max(0, s.v[j]), 0));
+      const r = range(0, Math.max(...tots, votes && call > 0 ? call : 0), true), Y = grid(r);
+      const gw = (PR - PL) / np, bw = Math.min(110, gw * .62);
+      pers.forEach((p, j) => {
+        const cx = PL + gw * (j + .5); let acc = 0;
+        rs.forEach(s => {
+          const v = Math.max(0, s.v[j]); if (v <= 0) return;
+          R(cx - bw / 2, Y(acc + v), bw, Y(acc) - Y(acc + v), s.k); R(cx - bw / 2, Y(acc + v), bw, 2, P.bg);
+          if (d.labels && Y(acc) - Y(acc + v) >= 18) T(fa(v), cx, (Y(acc) + Y(acc + v)) / 2 + 5, `600 13px ${BODY}`, P.on, "center");
+          acc += v;
+        });
+        if (d.labels) T(f(tots[j]), cx, Y(tots[j]) - 10, `800 ${np > 8 ? 14 : 20}px ${DISP}`, P.ink, "center");
+        if (gw >= 44) T(fit(p, `600 13px ${BODY}`, gw - 6), cx, PB + 28, `600 13px ${BODY}`, P.muted, "center");
+      });
+      R(PL, Y(0), PR - PL, 2, P.ink); thresh(Y, r);
+    }
+
     // ---- Vertical bar ----
-    if (G === "bar") {
+    else if (G === "bar") {
       if (!n) return msg("Add a share to draw this chart.");
       const r = range(Math.min(...vals), Math.max(...vals, votes && call > 0 ? call : -Infinity), true), Y = grid(r);
       T("Period: " + plabel, 40, 206, `600 14px ${BODY}`, P.muted);
@@ -264,6 +348,7 @@
       rs.forEach((s, i) => {
         const v = vals[i], cx = PL + gw * (i + .5), y0 = Y(0), yv = Y(v);
         R(cx - bw / 2, Math.min(y0, yv), bw, Math.abs(y0 - yv), s.k);
+        if (s.e[pidx] > 0 && pi !== -2) eb(cx, Y(v + s.e[pidx]), Y(v - s.e[pidx]));
         if (d.labels) T(n > 8 ? fa(v) : f(v), cx, v >= 0 ? yv - 10 : yv + lf + 8, `800 ${lf}px ${DISP}`, P.ink, "center");
         if (gw >= 44) T(fit(s.n, `600 ${n > 8 ? 12 : 15}px ${BODY}`, gw - 6), cx, PB + 28, `600 ${n > 8 ? 12 : 15}px ${BODY}`, P.muted, "center");
       });
@@ -288,7 +373,73 @@
         T(fit(f(tot), `800 44px ${DISP}`, Rr * hole * 1.8), cx, cy + 12, `800 44px ${DISP}`, P.ink, "center"); T("total", cx, cy + 38, `600 15px ${BODY}`, P.muted, "center"); }
     }
 
-    // ---- Trend / Line / Scatter ----
+    // ---- Hybrid: each share picks its own type, color and axis ----
+    else if (G === "hybrid") {
+      if (!np || !n) return msg("Add a period and a share to draw this chart.");
+      const mkr = ax => { const L = rs.filter(s => s.ax === ax); if (!L.length) return null; const all = L.flatMap(s => s.v.flatMap((v, j) => [v, v + s.e[j], v - s.e[j]]));
+        return range(Math.min(...all), Math.max(...all), d.zero || L.some(s => s.t === "bar")); };
+      const rl = mkr("L"), rr = mkr("R"), Yl = rl ? grid(rl) : null; let Yr = null;
+      if (rr) { Yr = v => PB - (v - rr.min) / (rr.max - rr.min) * (PB - PT);
+        tk(rr).forEach(v => { T(fa(v), PR + 10, Yr(v) + 5, `600 13px ${BODY}`, P.muted); if (!rl) R(PL, Yr(v), PR - PL, 1, P.rule); }); }
+      const gw = (PR - PL) / np, X = j => PL + gw * (j + .5), bars = rs.filter(s => s.t === "bar"), bw = Math.min(70, gw * .8 / Math.max(1, bars.length));
+      pers.forEach((p, j) => { if (gw >= 44) T(fit(p, `600 13px ${BODY}`, gw - 6), X(j), PB + 28, `600 13px ${BODY}`, P.muted, "center"); });
+      rs.forEach(s => {
+        const Y = s.ax === "R" ? Yr : Yl, off = s.t === "bar" ? (bars.indexOf(s) - (bars.length - 1) / 2) * bw : 0, pts = s.v.map((v, j) => [X(j), Y(v)]);
+        if (s.t === "bar") pts.forEach(([x, y]) => R(x + off - bw / 2, Math.min(y, Y(0)), bw - 2, Math.abs(Y(0) - y), s.k));
+        else {
+          g.lineJoin = "round"; g.strokeStyle = s.k;
+          if (s.t !== "scatter") { g.globalAlpha = s.t === "trend" ? .35 : 1; g.lineWidth = s.t === "trend" ? 2 : 4; g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke(); g.globalAlpha = 1; }
+          const t = s.t === "trend" && np > 1 ? fitM(pers.map((_, j) => j), s.v, "linear") : null;
+          if (t) { g.lineWidth = 4; g.setLineDash([10, 8]); g.beginPath(); g.moveTo(X(0), Y(t.f(0))); g.lineTo(X(np - 1), Y(t.f(np - 1))); g.stroke(); g.setLineDash([]); }
+          pts.forEach(([x, y]) => { g.fillStyle = s.k; g.beginPath(); g.arc(x, y, s.t === "scatter" ? 7 : 5, 0, Math.PI * 2); g.fill(); g.lineWidth = 2; g.strokeStyle = P.bg; g.stroke(); });
+        }
+        s.v.forEach((v, j) => {
+          if (s.e[j] > 0) eb(X(j) + off, Y(v + s.e[j]), Y(v - s.e[j]));
+          if (d.labels && (s.t === "bar" ? np * bars.length <= 18 : j === np - 1 && n <= 6)) T(fa(v), X(j) + off, Y(v) - 12 - (s.e[j] > 0 ? 8 : 0), `600 13px ${BODY}`, s.t === "bar" ? P.ink : s.k, "center");
+        });
+      });
+    }
+
+    // ---- Numeric x-axis: scientific scatter, line and trend (log axes, error bars, curve fits) ----
+    else if (numX) {
+      if (G !== "scatter" && np < 2) return msg("Add at least two numeric periods to draw a " + G + ".");
+      if (!n) return msg("Add a share to draw this chart.");
+      const xs = pers.map(Number), F = G === "trend" ? Math.max(0, Math.min(6, Math.round(+d.forecast || 0))) : 0;
+      const xa = Math.min(...xs), xb = Math.max(...xs), xe = xb + F * (np > 1 ? (xb - xa) / (np - 1) : 0), lx = d.logx, ly = d.logy;
+      const fits = G === "trend" ? rs.map(s => fitM(xs, s.v, d.fit)) : [];
+      const ys = rs.flatMap(s => s.v.flatMap((v, j) => [v, v + s.e[j], v - s.e[j]])).concat(fits.flatMap(t => t ? [t.f(xa), t.f(xe)] : []));
+      const ry = mkR(ys, ly, d.zero), rx = mkR(lx ? xs.concat([xe]) : [xa, xe], lx, false);
+      const pos = (r, v, a, b) => a + ((r.log ? Math.log10(v) : v) - r.min) / (r.max - r.min) * (b - a);
+      const Yp = v => pos(ry, v, PB, PT), Xp = v => pos(rx, v, PL + 30, PR - 30), ok = (v, lg) => isFinite(v) && (!lg || v > 0);
+      tk(ry).forEach(t => { const y = pos(ry, ry.log ? Math.pow(10, t) : t, PB, PT); R(PL, y, PR - PL, 1, P.rule); T(ly ? "10" + sup(t) : fa(t), PL - 12, y + 5, `600 13px ${BODY}`, P.muted, "right"); });
+      tk(rx).forEach(t => { const x = pos(rx, rx.log ? Math.pow(10, t) : t, PL + 30, PR - 30); R(x, PT, 1, PB - PT, P.rule); T(lx ? "10" + sup(t) : d.sci ? sf(t) : nf.format(t), x, PB + 28, `600 13px ${BODY}`, P.muted, "center"); });
+      if (!ly && ry.min < 0) R(PL, Yp(0), PR - PL, 2, P.muted);
+      if (!ly) thresh(Yp, ry);
+      if (F > 0 && !lx) { g.globalAlpha = .07; R(Xp(xb), PT, Xp(xe) - Xp(xb), PB - PT, P.ink); g.globalAlpha = 1; T("Forecast", PR - 8, PB - 10, `600 13px ${BODY}`, P.muted, "right"); }
+      g.lineJoin = "round"; g.lineCap = "round";
+      rs.forEach((s, si) => {
+        const pts = xs.map((x, j) => ok(x, lx) && ok(s.v[j], ly) ? [Xp(x), Yp(s.v[j]), j] : null).filter(Boolean);
+        g.strokeStyle = s.k;
+        if (G !== "scatter") { g.globalAlpha = G === "trend" ? .3 : 1; g.lineWidth = G === "trend" ? 2 : 4; g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke(); g.globalAlpha = 1; }
+        const t = fits[si];
+        if (t) {
+          g.lineWidth = 4;
+          const curve = (a, b, dash) => { g.setLineDash(dash); g.beginPath(); let on = false;
+            for (let i = 0; i <= 80; i++) { const x = a + (b - a) * i / 80, y = t.f(x); if (!ok(x, lx) || !ok(y, ly)) { on = false; continue; } on ? g.lineTo(Xp(x), Yp(y)) : g.moveTo(Xp(x), Yp(y)); on = true; }
+            g.stroke(); g.setLineDash([]); };
+          curve(xa, xb, []); if (F > 0) curve(xb, xe, [10, 8]);
+          if (d.labels && n <= 6) T(`${s.n}: ${t.eq}   (R² = ${t.r2})`, PL + 10, PT + 18 + si * 18, `600 13px ${BODY}`, s.k);
+        }
+        pts.forEach(([x, y, j]) => {
+          if (s.e[j] > 0) eb(x, Yp(s.v[j] + s.e[j]), ly && s.v[j] - s.e[j] <= 0 ? PB : Yp(s.v[j] - s.e[j]));
+          g.globalAlpha = .95; g.fillStyle = s.k; g.beginPath(); g.arc(x, y, G === "scatter" ? 7 : G === "trend" ? 4 : 5, 0, Math.PI * 2); g.fill();
+          g.globalAlpha = 1; g.lineWidth = 2; g.strokeStyle = P.bg; g.stroke();
+          if (d.labels && (G === "scatter" ? n * np <= 16 : j === np - 1 && n <= 6)) T(f(s.v[j]), Math.min(x, PR - 20), y - 12 - (s.e[j] > 0 ? 8 : 0), `600 13px ${BODY}`, s.k, "center");
+        });
+      });
+    }
+
+    // ---- Trend / Line / Scatter (category x-axis) ----
     else {
       if (G !== "scatter" && np < 2) return msg("Add at least two periods to draw a " + G + ".");
       if (!np || !n) return msg("Add a period and a share to draw this chart.");
@@ -335,6 +486,172 @@
     }
   }
 
+  // ====== Curve fitting ======
+  const sup = s => String(s).replace(/[-0-9]/g, c => "⁻⁰¹²³⁴⁵⁶⁷⁸⁹"["-0123456789".indexOf(c)]);
+  function solve(A, b) {
+    const n = b.length;
+    for (let i = 0; i < n; i++) {
+      let p = i; for (let r = i + 1; r < n; r++) if (Math.abs(A[r][i]) > Math.abs(A[p][i])) p = r;
+      [A[i], A[p]] = [A[p], A[i]]; [b[i], b[p]] = [b[p], b[i]];
+      for (let r = i + 1; r < n; r++) { const k = A[r][i] / (A[i][i] || 1e-12); for (let c = i; c < n; c++) A[r][c] -= k * A[i][c]; b[r] -= k * b[i]; }
+    }
+    const x = new Array(n).fill(0);
+    for (let i = n - 1; i >= 0; i--) { let t = b[i]; for (let c = i + 1; c < n; c++) t -= A[i][c] * x[c]; x[i] = t / (A[i][i] || 1e-12); }
+    return x;
+  }
+  function fitM(xs, ys, m) {
+    const pts = xs.map((x, i) => [x, ys[i]]).filter(([x, y]) => isFinite(x) && isFinite(y) && (m !== "exp" || y > 0) && (m !== "pow" || (x > 0 && y > 0)));
+    const deg = m === "quad" ? 2 : 1; if (pts.length <= deg) return null;
+    const X = pts.map(p => m === "pow" ? Math.log(p[0]) : p[0]), Y = pts.map(p => m === "exp" || m === "pow" ? Math.log(p[1]) : p[1]), A = [], b = [];
+    for (let i = 0; i <= deg; i++) { A.push([]); b.push(X.reduce((t, x, k) => t + Math.pow(x, i) * Y[k], 0)); for (let j = 0; j <= deg; j++) A[i].push(X.reduce((t, x) => t + Math.pow(x, i + j), 0)); }
+    const c = solve(A, b);
+    const f = m === "exp" ? x => Math.exp(c[0] + c[1] * x) : m === "pow" ? x => Math.exp(c[0]) * Math.pow(x, c[1]) : x => c.reduce((t, ck, i) => t + ck * Math.pow(x, i), 0);
+    const mean = pts.reduce((t, p) => t + p[1], 0) / pts.length;
+    const ssr = pts.reduce((t, p) => t + Math.pow(p[1] - f(p[0]), 2), 0), sst = pts.reduce((t, p) => t + Math.pow(p[1] - mean, 2), 0);
+    const pq = v => +v.toPrecision(3), sg = v => (v < 0 ? "− " : "+ ") + Math.abs(pq(v));
+    const eq = m === "exp" ? `y = ${pq(Math.exp(c[0]))}·e^(${pq(c[1])}x)` : m === "pow" ? `y = ${pq(Math.exp(c[0]))}·x^${pq(c[1])}`
+      : m === "quad" ? `y = ${pq(c[2])}x² ${sg(c[1])}x ${sg(c[0])}` : `y = ${pq(c[1])}x ${sg(c[0])}`;
+    return { f, eq, r2: sst ? (1 - ssr / sst).toFixed(4) : "1.0000" };
+  }
+
+  // ====== Math typesetter (LaTeX subset, drawn on the canvas) ======
+  const MF = '"STIX Two Math","Cambria Math","Latin Modern Math","Times New Roman",Georgia,serif';
+  const SYM = { pi:"π", theta:"θ", alpha:"α", beta:"β", gamma:"γ", delta:"δ", epsilon:"ε", lambda:"λ", mu:"μ", sigma:"σ", omega:"ω", phi:"φ", rho:"ρ", tau:"τ", Delta:"Δ", Sigma:"Σ", Omega:"Ω", Pi:"Π",
+    infty:"∞", cdot:"·", times:"×", div:"÷", pm:"±", mp:"∓", le:"≤", leq:"≤", ge:"≥", geq:"≥", ne:"≠", neq:"≠", approx:"≈", to:"→", rightarrow:"→", Rightarrow:"⇒", leftrightarrow:"↔",
+    partial:"∂", nabla:"∇", ldots:"…", cdots:"⋯", therefore:"∴", in:"∈", subset:"⊂", cup:"∪", cap:"∩", forall:"∀", exists:"∃", degree:"°", circ:"°", equiv:"≡", sim:"∼", propto:"∝", angle:"∠", perp:"⊥", parallel:"∥" };
+  const REL = new Set(["=", "<", ">", "≤", "≥", "≠", "≈", "→", "⇒", "↔", "∈", "⊂", "≡", "∼", "∝"]), BIN = new Set(["+", "−", "×", "÷", "±", "∓", "·", "∪", "∩"]), OPEN = new Set(["(", "[", ",", "|", "{"]);
+  const FUNS = new Set("sin cos tan cot sec csc log ln exp lim min max det gcd arcsin arccos arctan sinh cosh tanh".split(" "));
+  const SP = { quad:1, qquad:2, ",":.17, ";":.28, ":":.22, "!":-.1, " ":.28 };
+  const tok = s => s.match(/\\text\{[^}]*\}|\\[a-zA-Z]+|\\.|[{}^_]|\S/g) || [];
+  function parseSeq(t, i, end) {
+    const out = [];
+    while (i < t.length && t[i] !== end) {
+      let a; [a, i] = parseAtom(t, i); const n = { a };
+      while (t[i] === "^" || t[i] === "_") { const k = t[i]; let arg; [arg, i] = parseAtom(t, i + 1); n[k === "^" ? "sup" : "sub"] = arg; }
+      out.push(n);
+    }
+    return [out, i];
+  }
+  function parseAtom(t, i) {
+    const k = t[i];
+    if (k === undefined) return [{ t: "ch", s: "" }, i];
+    if (k === "{") { const [seq, j] = parseSeq(t, i + 1, "}"); return [{ t: "grp", seq }, j + 1]; }
+    if (k.startsWith("\\text{")) return [{ t: "txt", s: k.slice(6, -1) }, i + 1];
+    if (k[0] === "\\") {
+      const c = k.slice(1);
+      if (c === "frac" || c === "dfrac" || c === "tfrac") { const [n, j] = parseAtom(t, i + 1), [m, l] = parseAtom(t, j); return [{ t: "frac", n, m }, l]; }
+      if (c === "sqrt") { let idx = null, j = i + 1; if (t[j] === "[") { const [q, e] = parseSeq(t, j + 1, "]"); idx = { t: "grp", seq: q }; j = e + 1; } const [b, l] = parseAtom(t, j); return [{ t: "sqrt", b, idx }, l]; }
+      if (c === "boxed" || c === "overline") { const [b, j] = parseAtom(t, i + 1); return [{ t: c, b }, j]; }
+      if (c === "left") { const [seq, j] = parseSeq(t, i + 2, "\\right"); return [{ t: "lr", l: t[i + 1], r: t[j + 1], seq }, j + 2]; }
+      return [{ t: "cmd", c }, i + 1];
+    }
+    return [{ t: "ch", s: k }, i + 1];
+  }
+  const glyph = a => a.t === "ch" ? (a.s === "-" ? "−" : a.s === "*" ? "∗" : a.s) : a.t === "cmd" ? SYM[a.c] : null;
+  function atomBox(a, sz, col) {
+    const mk = (s, font, aa, dd, dy = 0) => { g.font = font; return { w: g.measureText(s).width, a: aa, d: dd,
+      draw(x, y) { g.font = font; g.fillStyle = col; g.textAlign = "left"; g.textBaseline = "alphabetic"; g.fillText(s, x, y + dy); } }; };
+    const gl = glyph(a);
+    if (gl) return mk(gl, `${/^[a-zA-Zα-ωϑϕ∂]$/.test(gl) ? "italic " : ""}${sz}px ${MF}`, sz * .72, sz * .22);
+    if (a.t === "txt") return mk(a.s, `${sz}px ${MF}`, sz * .72, sz * .22);
+    if (a.t === "grp") return lay(a.seq, sz, col);
+    if (a.t === "cmd") {
+      if (a.c === "sum" || a.c === "prod") return mk(a.c === "sum" ? "∑" : "∏", `${sz * 1.5}px ${MF}`, sz * .95, sz * .5, sz * .2);
+      if (a.c === "int") return mk("∫", `${sz * 1.5}px ${MF}`, sz * 1.0, sz * .5, sz * .22);
+      return mk(FUNS.has(a.c) ? a.c : "\\" + a.c, `${sz}px ${MF}`, sz * .72, sz * .22);
+    }
+    if (a.t === "frac") {
+      const s2 = sz * .9, N = atomBox(a.n, s2, col), M = atomBox(a.m, s2, col), ax = sz * .27, gap = sz * .16, w = Math.max(N.w, M.w) + sz * .3;
+      return { w, a: ax + gap + N.d + N.a, d: Math.max(0, gap + M.a + M.d - ax), draw(x, y) {
+        N.draw(x + (w - N.w) / 2, y - ax - gap - N.d); M.draw(x + (w - M.w) / 2, y - ax + gap + M.a);
+        g.fillStyle = col; g.fillRect(x + sz * .08, y - ax - 1, w - sz * .16, 2); } };
+    }
+    if (a.t === "sqrt") {
+      const B = atomBox(a.b, sz, col), I = a.idx ? atomBox(a.idx, sz * .6, col) : null, iw = I ? Math.max(0, I.w - sz * .25) : 0;
+      return { w: iw + sz * .7 + B.w, a: B.a + sz * .2, d: B.d + sz * .05, draw(x, y) {
+        const x0 = x + iw, top = y - B.a - sz * .16, bot = y + B.d + sz * .04;
+        g.strokeStyle = col; g.lineWidth = Math.max(1.5, sz * .055); g.lineJoin = "miter"; g.beginPath();
+        g.moveTo(x0, y - B.a * .3); g.lineTo(x0 + sz * .18, bot); g.lineTo(x0 + sz * .5, top); g.lineTo(x0 + sz * .6 + B.w + sz * .08, top); g.stroke();
+        if (I) I.draw(x, y - B.a * .5); B.draw(x0 + sz * .6, y); } };
+    }
+    if (a.t === "boxed") { const B = atomBox(a.b, sz, col), pd = sz * .25;
+      return { w: B.w + 2 * pd, a: B.a + pd, d: B.d + pd, draw(x, y) { g.strokeStyle = col; g.lineWidth = 2; g.strokeRect(x, y - B.a - pd, B.w + 2 * pd, B.a + B.d + 2 * pd); B.draw(x + pd, y); } }; }
+    if (a.t === "overline") { const B = atomBox(a.b, sz, col);
+      return { w: B.w, a: B.a + sz * .15, d: B.d, draw(x, y) { B.draw(x, y); g.fillStyle = col; g.fillRect(x, y - B.a - sz * .1, B.w, 1.5); } }; }
+    if (a.t === "lr") {
+      const C = lay(a.seq, sz, col), dc = c => (c || "").replace(/^\\/, ""), dl = c => !c || dc(c) === "." ? 0 : dc(c) === "{" || dc(c) === "}" ? sz * .5 : sz * .38;
+      const k = Math.max(1, (C.a + C.d + sz * .15) / sz), cy0 = (C.d - C.a) / 2;
+      return { w: dl(a.l) + C.w + dl(a.r), a: Math.max(C.a, sz * .75) + sz * .05, d: Math.max(C.d, sz * .25) + sz * .05, draw(x, y) {
+        const one = (c, px) => { if (!dl(c)) return; g.save(); g.translate(px, y + cy0); g.scale(1, k); g.font = `${sz}px ${MF}`; g.fillStyle = col; g.textAlign = "left"; g.fillText(dc(c), 0, sz * .25); g.restore(); };
+        one(a.l, x); C.draw(x + dl(a.l), y); one(a.r, x + dl(a.l) + C.w); } };
+    }
+    return mk("", `${sz}px ${MF}`, 0, 0);
+  }
+  function withScripts(B, n, sz, col, lim) {
+    if (!n.sup && !n.sub) return B;
+    const ss = sz * .7, S = n.sup && atomBox(n.sup, ss, col), U = n.sub && atomBox(n.sub, ss, col);
+    if (lim) { const w = Math.max(B.w, S ? S.w : 0, U ? U.w : 0), gap = sz * .12;
+      return { w, a: B.a + (S ? S.a + S.d + gap : 0), d: B.d + (U ? U.a + U.d + gap : 0), draw(x, y) {
+        B.draw(x + (w - B.w) / 2, y); if (S) S.draw(x + (w - S.w) / 2, y - B.a - gap - S.d); if (U) U.draw(x + (w - U.w) / 2, y + B.d + gap + U.a); } }; }
+    const up = Math.max(sz * .38, B.a - sz * .3), dn = Math.max(sz * .2, B.d + sz * .1);
+    return { w: B.w + 1 + Math.max(S ? S.w : 0, U ? U.w : 0), a: Math.max(B.a, S ? up + S.a : 0), d: Math.max(B.d, U ? dn + U.d : 0),
+      draw(x, y) { B.draw(x, y); if (S) S.draw(x + B.w + 1, y - up); if (U) U.draw(x + B.w + 1, y + dn); } };
+  }
+  function lay(seq, sz, col) {
+    const parts = []; let prev = "";
+    seq.forEach(n => {
+      const a = n.a, gl = glyph(a), cls = gl && REL.has(gl) ? "rel" : gl && BIN.has(gl) ? "bin" : gl && OPEN.has(gl) ? "open" : "";
+      let pre = 0, post = 0;
+      if (a.t === "cmd" && SP[a.c] !== undefined) { parts.push({ b: { w: SP[a.c] * sz, a: 0, d: 0, draw() {} } }); return; }
+      if (cls === "rel") pre = post = .28 * sz; else if (cls === "bin" && prev !== "" && prev !== "bin" && prev !== "rel" && prev !== "open") pre = post = .22 * sz;
+      if (gl === ",") post = .17 * sz;
+      if (a.t === "cmd" && FUNS.has(a.c)) post = .17 * sz;
+      parts.push({ b: withScripts(atomBox(a, sz, col), n, sz, col, a.t === "cmd" && (a.c === "sum" || a.c === "prod" || a.c === "lim")), pre, post });
+      prev = cls || "x";
+    });
+    let x = 0, A = 0, D = 0;
+    const pos = parts.map(p => { x += p.pre || 0; const px = x; x += p.b.w + (p.post || 0); A = Math.max(A, p.b.a); D = Math.max(D, p.b.d); return px; });
+    return { w: x, a: A, d: D, draw(X, Y) { parts.forEach((p, i) => p.b.draw(X + pos[i], Y)); } };
+  }
+  function txtBox(s, sz, col) {
+    const font = `${sz}px ${BODY}`; g.font = font;
+    return { w: g.measureText(s).width, a: sz * .75, d: sz * .25, draw(x, y) { g.font = font; g.fillStyle = col; g.textAlign = "left"; g.textBaseline = "alphabetic"; g.fillText(s, x, y); } };
+  }
+  function rowBox(line, sz, col) {
+    const bs = line.split("$").map((p, i) => !p ? null : i % 2 ? lay(parseSeq(tok(p), 0)[0], sz, col) : txtBox(p, sz * .82, col)).filter(Boolean);
+    let w = 0, a = 0, dd = 0; bs.forEach(b => { w += b.w; a = Math.max(a, b.a); dd = Math.max(dd, b.d); });
+    return { w, a, d: dd, draw(x, y) { bs.forEach(b => { b.draw(x, y); x += b.w; }); } };
+  }
+  function drawMath(d, R, T, fit) {
+    const items = d.items || [], it = items[Math.max(0, Math.min(+d.sel || 0, items.length - 1))];
+    if (!it) return T("Add a problem to begin.", 640, 420, `600 22px ${BODY}`, P.muted, "center");
+    const lines = s => String(s || "").split("\n").map(x => x.trim()).filter(Boolean);
+    const steps = lines(it.steps).map(s => { const k = s.indexOf("::"); return k < 0 ? { c: "", m: s } : { c: s.slice(0, k).trim(), m: s.slice(k + 2).trim() }; });
+    const ex = steps.some(s => s.c) ? 400 : 88, avail = 466;
+    const mb = (fn, sz, mw) => { let b = fn(sz); if (b.w > mw) b = fn(sz * mw / b.w * .97); return b; };
+    const mth = (m, z) => lay(parseSeq(tok(m), 0)[0], z, P.ink);
+    let L, sc = 1;
+    for (; sc > .4; sc *= .92) {
+      L = { p: lines(it.q).map(l => mb(z => rowBox(l, z, P.ink), 34 * sc, 1100)), s: steps.map(s => mb(z => mth(s.m, z), 30 * sc, 1240 - ex - 12)), a: it.a ? mb(z => mth(it.a, z), 36 * sc, 1100) : null };
+      L.ph = L.p.reduce((t, b) => t + b.a + b.d + 12, 0) + 44;
+      L.sh = L.s.reduce((t, b) => t + Math.max(b.a + b.d, 24) + 18, 0);
+      L.ah = L.a ? L.a.a + L.a.d + 52 : 0;
+      if (L.ph + 16 + L.sh + (L.a ? 16 + L.ah : 0) <= avail) break;
+    }
+    let y = 190;
+    R(40, y, 1200, L.ph, P.surface); R(40, y, 12, L.ph, "#3f7cff"); T("Problem", 72, y + 24, `600 14px ${BODY}`, P.muted);
+    let cy = y + 34; L.p.forEach(b => { b.draw(72, cy + b.a); cy += b.a + b.d + 12; });
+    cy = y + L.ph + 16;
+    const cf2 = `600 ${Math.round(Math.max(12, 16 * sc))}px ${BODY}`;
+    L.s.forEach((b, i) => {
+      const h = Math.max(b.a + b.d, 24) + 18, mid = cy + h / 2;
+      R(44, mid - 13, 26, 26, P.track); T(i + 1, 57, mid + 6, `800 15px ${DISP}`, P.ink, "center");
+      if (steps[i].c) T(fit(steps[i].c, cf2, 300), 84, mid + 5, cf2, P.muted);
+      b.draw(ex, mid + (b.a - b.d) / 2); R(44, cy + h - 1, 1196, 1, P.rule); cy += h;
+    });
+    if (L.a) { y = cy + 16; R(40, y, 1200, L.ah, P.surface); R(40, y, 12, L.ah, "#2fd4b0"); T("Answer", 72, y + 24, `600 14px ${BODY}`, P.muted); L.a.draw(72, y + 36 + L.a.a); }
+  }
+
   // ====== CSV ======
   const q = s => /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
   function toCSV() {
@@ -365,7 +682,8 @@
       const body = rows.slice(1);
       d.periods = body.map(r => (r[0] || "").trim()).join(", ");
       d.shares = names.map((name, i) => ({ name, vals: body.map(r => (r[i + 1] || "0").trim()).join(", "),
-        color: (d.shares[i] && d.shares[i].color) || PAL[i], party: (d.shares[i] && d.shares[i].party) ?? i % 4 }));
+        color: (d.shares[i] && d.shares[i].color) || PAL[i], party: (d.shares[i] && d.shares[i].party) ?? i % 4,
+        err: (d.shares[i] || {}).err, type: (d.shares[i] || {}).type, axis: (d.shares[i] || {}).axis }));
       sync(); buildShares(); changed(true);
     } catch (e) { $("msg").textContent = e.message; }
   }
@@ -377,15 +695,19 @@
       items.forEach(([id, label]) => {
         const b = document.createElement("button"); b.type = "button"; b.className = "tab"; b.textContent = label; b.setAttribute("role", "tab");
         b.setAttribute("aria-selected", String(st[key] === id));
-        b.onclick = () => { st[key] = id; if (key === "mode") { sync(); buildShares(); } buildTabs(); vis(); changed(); };
+        b.onclick = () => { st[key] = id; if (key === "mode") { if (id === "sci" && (st.graph === "bar" || st.graph === "pie")) st.graph = "trend"; sync(); buildShares(); } buildTabs(); vis(); changed(); };
         el.appendChild(b);
       });
     });
     $("modeNote").textContent = MODES[st.mode][2];
   }
   function vis() {
-    document.querySelectorAll("[data-g]").forEach(e => e.hidden = !e.dataset.g.split(" ").includes(st.graph));
-    document.querySelectorAll("[data-m]").forEach(e => e.hidden = e.dataset.m !== st.mode);
+    const math = st.mode === "math", gg = st.mode === "hybrid" ? "hybrid" : st.graph;
+    document.querySelectorAll("[data-g]").forEach(e => e.hidden = !e.dataset.g.split(" ").includes(gg));
+    document.querySelectorAll("[data-m]").forEach(e => e.hidden = !e.dataset.m.split(" ").includes(st.mode));
+    document.querySelectorAll(".nm").forEach(e => e.hidden = math);
+    document.querySelectorAll(".ym").forEach(e => e.hidden = !math);
+    $("gbox").hidden = math || st.mode === "hybrid";
   }
   function periodOptions() {
     const d = cur(), sel = $("period"), pers = d.periods.split(",").map(s => s.trim()).filter(Boolean);
@@ -396,11 +718,12 @@
   }
   function sync() {
     const d = cur();
-    ["title", "sub", "head", "note", "prefix", "suffix", "periods", "total", "call", "forecast"].forEach(k => $(k).value = d[k]);
-    ["zero", "smooth", "donut", "labels"].forEach(k => $(k).checked = !!d[k]);
+    ["title", "sub", "head", "note", "prefix", "suffix", "periods", "total", "call", "forecast", "xlabel", "ylabel", "fit", "barStyle"].forEach(k => $(k).value = d[k]);
+    ["zero", "smooth", "donut", "labels", "sci", "logx", "logy"].forEach(k => $(k).checked = !!d[k]);
     periodOptions();
   }
   function buildShares() {
+    if (st.mode === "math") return buildItems();
     const d = cur(), votes = st.mode === "votes", box = $("shares"), max = MODES[st.mode][1]; box.innerHTML = "";
     d.shares.forEach((s, i) => {
       const r = document.createElement("div"); r.className = "srow";
@@ -415,6 +738,18 @@
         const sel = r.querySelector("select"), sw = r.querySelector("i"); sel.value = s.party; sw.style.background = PARTIES[s.party][1];
         sel.onchange = () => { s.party = +sel.value; sw.style.background = PARTIES[s.party][1]; changed(true); };
       } else { const c = r.querySelector("input[type=color]"); c.value = s.color; c.oninput = () => { s.color = c.value; changed(true); }; }
+      if (st.mode === "sci" || st.mode === "hybrid") {
+        const ei = document.createElement("input"); ei.type = "text"; ei.placeholder = "± error by period (optional)"; ei.setAttribute("aria-label", "Error"); ei.value = s.err || "";
+        ei.oninput = () => { s.err = ei.value; changed(true); }; r.appendChild(ei);
+      }
+      if (st.mode === "hybrid") {
+        const ln = document.createElement("div"); ln.className = "sline sel"; ln.style.marginTop = "8px";
+        ln.innerHTML = '<select aria-label="Chart type"><option value="bar">Bar</option><option value="line">Line</option><option value="scatter">Scatter</option><option value="trend">Trend</option></select><select aria-label="Axis"><option value="L">Left axis</option><option value="R">Right axis</option></select><select aria-label="Preset color"><option value="">Custom color</option>' + PARTIES.map(p => `<option value="${p[1]}">${p[0]}</option>`).join("") + "</select>";
+        const [tp, ax, pc] = ln.children; tp.value = s.type || "line"; ax.value = s.axis || "L";
+        tp.onchange = () => { s.type = tp.value; changed(true); }; ax.onchange = () => { s.axis = ax.value; changed(true); };
+        pc.onchange = () => { if (pc.value) { s.color = pc.value; r.querySelector("input[type=color]").value = pc.value; changed(true); } };
+        r.appendChild(ln);
+      }
       rm.disabled = d.shares.length <= 1;
       rm.onclick = () => { d.shares.splice(i, 1); buildShares(); changed(); };
       box.appendChild(r);
@@ -422,17 +757,37 @@
     $("add").disabled = d.shares.length >= max;
     $("cnt").textContent = d.shares.length + " of " + max;
   }
+  function mathSel() {
+    const d = cur(), sel = $("mathsel"); sel.innerHTML = "";
+    d.items.forEach((it, i) => { const o = document.createElement("option"); o.value = i; o.textContent = (i + 1) + ". " + String(it.q || "").replace(/\$/g, "").slice(0, 34); sel.appendChild(o); });
+    d.sel = Math.max(0, Math.min(+d.sel || 0, d.items.length - 1)); sel.value = d.sel;
+  }
+  function buildItems() {
+    const d = cur(), box = $("items"); box.innerHTML = "";
+    d.items.forEach((it, i) => {
+      const r = document.createElement("div"); r.className = "srow";
+      r.innerHTML = '<div class="sline"><b style="flex:1">Problem ' + (i + 1) + '</b><button type="button" aria-label="Remove problem">✕</button></div><textarea aria-label="Problem" placeholder="Text with math in $…$, one line per row"></textarea><textarea class="tall" aria-label="Steps" placeholder="One step per line: caption :: LaTeX"></textarea><input type="text" aria-label="Answer" placeholder="Answer (LaTeX)">';
+      const [q, s] = r.querySelectorAll("textarea"), a = r.querySelector("input"), rm = r.querySelector("button");
+      q.value = it.q; s.value = it.steps; a.value = it.a;
+      q.oninput = () => { it.q = q.value; mathSel(); changed(true); }; s.oninput = () => { it.steps = s.value; changed(true); }; a.oninput = () => { it.a = a.value; changed(true); };
+      rm.disabled = d.items.length <= 1; rm.onclick = () => { d.items.splice(i, 1); buildItems(); changed(true); };
+      box.appendChild(r);
+    });
+    $("addItem").disabled = d.items.length >= 20; $("mcnt").textContent = d.items.length + " of 20"; mathSel();
+  }
   function changed(skipCSV) {
     render(); if (!skipCSV) $("csv").value = toCSV();
     try { localStorage.setItem("qg-state", JSON.stringify(st)); } catch (e) {}
   }
-  ["title", "sub", "head", "note", "prefix", "suffix", "total", "call", "forecast"].forEach(k => $(k).oninput = e => { cur()[k] = e.target.value; changed(true); });
+  ["title", "sub", "head", "note", "prefix", "suffix", "total", "call", "forecast", "xlabel", "ylabel", "fit", "barStyle"].forEach(k => $(k).oninput = e => { cur()[k] = e.target.value; changed(true); });
   $("periods").oninput = e => { cur().periods = e.target.value; periodOptions(); changed(); };
   $("period").onchange = e => { cur().period = +e.target.value; changed(true); };
-  ["zero", "smooth", "donut", "labels"].forEach(k => $(k).onchange = e => { cur()[k] = e.target.checked; changed(true); });
+  ["zero", "smooth", "donut", "labels", "sci", "logx", "logy"].forEach(k => $(k).onchange = e => { cur()[k] = e.target.checked; changed(true); });
   $("add").onclick = () => { const d = cur(); if (d.shares.length >= MODES[st.mode][1]) return;
     const i = d.shares.length; d.shares.push({ name: "Share " + (i + 1), vals: d.periods.split(",").map(() => 0).join(", "), color: PAL[i % 24], party: i % 4 }); buildShares(); changed(); };
   $("apply").onclick = applyCSV;
+  $("mathsel").onchange = e => { cur().sel = +e.target.value; changed(true); };
+  $("addItem").onclick = () => { const d = cur(); if (d.items.length >= 20) return; d.items.push({ q: "", steps: "", a: "" }); d.sel = d.items.length - 1; buildItems(); changed(true); };
   $("sample").onclick = () => { st.m[st.mode] = SAMPLES[st.mode](); sync(); buildShares(); changed(); $("msg").textContent = ""; };
   $("png").onclick = () => {
     render();
