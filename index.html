@@ -74,25 +74,9 @@
   .dmark { position: absolute; left: 64.29%; top: 22px; bottom: -8px; width: 2px; margin-left: -1px; background: var(--ink); }
   .dmark span { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); margin-bottom: 4px; font-size: 14px; font-weight: 600; color: var(--muted); white-space: nowrap; }
 
-  /* ---------- Live now ---------- */
+  /* ---------- Sections ---------- */
   section { margin-top: 112px; }
   h2 { font-size: clamp(32px, 4.5vw, 52px); line-height: 1; }
-  .sec-sub { color: var(--ink); font-size: clamp(20px, 2.4vw, 26px); max-width: 40ch; margin: 0; }
-  .rows { margin-top: 36px; border-top: 2px solid var(--ink); }
-  .row { display: grid; grid-template-columns: 230px 1fr 300px 90px; align-items: center; gap: 24px; padding: 22px 12px; border-bottom: 1px solid var(--rule); text-decoration: none; }
-  .row:hover { background: var(--surface); }
-  .rname { font-family: var(--display); font-weight: 800; font-size: 28px; letter-spacing: -0.01em; line-height: 1.1; }
-  .rstat { display: flex; align-items: center; gap: 12px; font-weight: 600; }
-  .sw { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--muted); flex: none; }
-  .sw.has { background: var(--c); border-color: var(--c); }
-  .rturn { display: grid; gap: 5px; }
-  .rtrack { display: flex; height: 8px; background: var(--track); }
-  .rtrack i { display: block; width: 0; background: var(--c); border-left: 2px solid var(--bg); transition: width .9s cubic-bezier(.2,.8,.2,1); }
-  .rtrack i:first-child { border-left: 0; }
-  .rtrack.pred i { opacity: .8; background-image: repeating-linear-gradient(135deg, transparent 0 4px, rgba(0,0,0,.28) 4px 6px); }
-  .rturn small { font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
-  .go { text-align: right; font-weight: 600; font-size: 16px; text-decoration: underline; text-underline-offset: 5px; }
-  .live-note { color: var(--muted); font-size: 15px; margin: 14px 0 0; }
 
   /* ---------- What it does ---------- */
   .feat { display: grid; grid-template-columns: repeat(2, 1fr); gap: 56px 72px; margin-top: 44px; }
@@ -111,8 +95,6 @@
   footer img { height: 48px; width: auto; max-width: 300px; object-fit: contain; display: block; background: var(--chip); padding: 4px 8px; border-radius: 6px; }
 
   @media (max-width: 900px) {
-    .row { grid-template-columns: 1fr; gap: 10px; padding: 20px 4px; }
-    .go { text-align: left; }
     .feat { grid-template-columns: 1fr; gap: 36px; }
     .dmark span { display: none; }
   }
@@ -122,7 +104,7 @@
     .foot { flex-direction: column; align-items: flex-start; }
     .dseg { font-size: 16px; padding-left: 10px; }
   }
-  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .dseg, .rtrack i { transition: none; } }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .dseg { transition: none; } }
 </style>
 </head>
 <body>
@@ -130,7 +112,7 @@
   <header class="top">
     <a class="logo" href="#top" aria-label="QuantumElection home"><span class="glyph" aria-hidden="true"><i></i><i></i></span>QuantumElection</a>
     <nav class="topright" aria-label="Main">
-      <a href="#live" data-results>Live results</a>
+      <a href="index.html" data-results>Live results</a>
       <div class="theme" role="group" aria-label="Color theme">
         <button type="button" data-theme-btn="light" aria-pressed="false">Light Mode</button>
         <button type="button" data-theme-btn="dark" aria-pressed="true">Dark Mode</button>
@@ -154,17 +136,6 @@
         <div class="dmark"><span>Call line</span></div>
       </div>
     </div>
-
-    <section id="live" aria-label="Live race results">
-      <p class="sec-sub">Where each race stands right now. Pick a race to open its full results.</p>
-      <div class="rows" id="rows">
-        <a class="row" href="index.html#president" data-race="president"><span class="rname">President</span><span class="rstat"><i class="sw"></i><span>Loading…</span></span><span class="rturn"></span><span class="go">View results</span></a>
-        <a class="row" href="index.html#vice-president" data-race="vice-president"><span class="rname">Vice President</span><span class="rstat"><i class="sw"></i><span>Loading…</span></span><span class="rturn"></span><span class="go">View results</span></a>
-        <a class="row" href="index.html#treasurer" data-race="treasurer"><span class="rname">Treasurer</span><span class="rstat"><i class="sw"></i><span>Loading…</span></span><span class="rturn"></span><span class="go">View results</span></a>
-        <a class="row" href="index.html#secretary" data-race="secretary"><span class="rname">Secretary</span><span class="rstat"><i class="sw"></i><span>Loading…</span></span><span class="rturn"></span><span class="go">View results</span></a>
-      </div>
-      <p class="live-note" id="liveNote">This list refreshes every minute.</p>
-    </section>
 
     <section id="how" aria-labelledby="howH">
       <h2 id="howH">What the results screen shows</h2>
@@ -207,20 +178,11 @@
 
 <script>
 (() => {
-  // ====== SETTINGS ======
   const RESULTS_URL = "index.html";   // the live results page; change this if you host it elsewhere
-  const BASES = [
-    "https://raw.githubusercontent.com/republic-of-freedom/Quantum-Election/refs/heads/main/Election/MMS_26-27/",
-    "https://raw.githubusercontent.com/republic-of-freedom/Quantum-Election/main/Election/MMS_26-27/",
-    "https://cdn.jsdelivr.net/gh/republic-of-freedom/Quantum-Election@main/Election/MMS_26-27/"
-  ];
-  const FILES = { "president": "Presidental.csv", "vice-president": "Vice-Pres.csv", "treasurer": "Treasurer.csv", "secretary": "Secretary.csv" };
-  const TOTAL_VOTES = 700, CALL_ABOVE = 450, REFRESH_SECONDS = 60;
   const $$ = s => [...document.querySelectorAll(s)];
 
-  // Point every link at the results page
+  // Point every results link at the results page
   $$("a[data-results]").forEach(a => a.setAttribute("href", RESULTS_URL));
-  $$("[data-race]").forEach(a => a.setAttribute("href", RESULTS_URL + "#" + a.dataset.race));
 
   // ====== Light / Dark ======
   function setTheme(t, save) {
@@ -233,80 +195,6 @@
 
   // ====== Hero: the bars grow in once ======
   requestAnimationFrame(() => requestAnimationFrame(() => document.getElementById("demo").classList.add("in")));
-
-  // ====== Live race list ======
-  function parseCSV(text) {
-    const rows = []; let row = [], cell = "", q = false;
-    for (let i = 0; i < text.length; i++) {
-      const ch = text[i];
-      if (q) { if (ch === '"' && text[i + 1] === '"') { cell += '"'; i++; } else if (ch === '"') q = false; else cell += ch; }
-      else if (ch === '"') q = true;
-      else if (ch === ",") { row.push(cell); cell = ""; }
-      else if (ch === "\n" || ch === "\r") { if (ch === "\r" && text[i + 1] === "\n") i++; row.push(cell); rows.push(row); row = []; cell = ""; }
-      else cell += ch;
-    }
-    if (cell !== "" || row.length) { row.push(cell); rows.push(row); }
-    return rows.filter(r => r.some(c => c.trim() !== ""));
-  }
-  function toData(rows) {
-    const candidates = rows[0].slice(1, 5).map(h => h.trim()).filter(Boolean);
-    if (!candidates.length) throw new Error("no candidates");
-    const nums = r => candidates.map((_, i) => Number(r[i + 1]) || 0);
-    const label = r => (r[0] || "").trim();
-    const body = rows.slice(1);
-    const tRow = body.find(r => /^(total|overall)s?$/i.test(label(r)));
-    const pRow = body.find(r => /^predict(ed|ion)?s?$/i.test(label(r)));
-    const grades = body.filter(r => r !== tRow && r !== pRow);
-    const totals = tRow ? nums(tRow) : candidates.map((_, i) => grades.reduce((s, r) => s + (Number(r[i + 1]) || 0), 0));
-    return { candidates, totals, predicted: pRow ? nums(pRow) : null };
-  }
-  async function getCSV(url) {
-    const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 8000);
-    try {
-      const res = await fetch(url + "?t=" + Date.now(), { signal: ctl.signal });
-      if (!res.ok) throw new Error("status " + res.status);
-      return await res.text();
-    } finally { clearTimeout(timer); }
-  }
-  async function loadRace(id) {
-    for (const base of BASES) { try { return toData(parseCSV(await getCSV(base + FILES[id]))); } catch (e) {} }
-    return null;
-  }
-
-  function bar(cls, vals, denom) {
-    return '<span class="rtrack ' + cls + '">' + vals.map((v, i) => '<i style="--c:var(--c' + i + ');width:' + (v / denom) * 100 + '%"></i>').join("") + "</span>";
-  }
-
-  function paint(id, d) {
-    const row = document.querySelector('[data-race="' + id + '"]');
-    const sw = row.querySelector(".sw"), stat = row.querySelector(".rstat span:last-child"), turn = row.querySelector(".rturn");
-    if (!d) { stat.textContent = "Not available right now"; sw.className = "sw"; turn.innerHTML = ""; return; }
-    const { candidates: c, totals: t, predicted: p } = d;
-    const sum = t.reduce((a, b) => a + b, 0), psum = p ? p.reduce((a, b) => a + b, 0) : 0;
-    const max = Math.max(...t), top = t.indexOf(max), tied = t.filter(v => v === max).length > 1;
-    const denom = Math.max(TOTAL_VOTES, sum, psum);
-    let text, lead = -1;
-    if (max > CALL_ABOVE) { text = "Called for " + c[top]; lead = top; }
-    else if (c.length === 1) { text = c[0] + " is unopposed"; lead = sum ? 0 : -1; }
-    else if (!sum) text = "No votes counted yet";
-    else if (tied) text = "Tied at " + max + " votes each";
-    else { const diff = max - Math.max(...t.filter((_, i) => i !== top)); text = c[top] + " leads by " + diff + (diff === 1 ? " vote" : " votes"); lead = top; }
-    stat.textContent = text;
-    sw.className = lead >= 0 ? "sw has" : "sw";
-    sw.style.setProperty("--c", "var(--c" + Math.max(lead, 0) + ")");
-    turn.innerHTML = bar("", t, denom) + (p ? bar("pred", p, denom) : "") +
-      "<small>Counted " + sum + " of " + TOTAL_VOTES + (p ? ". Predicted " + psum + "." : "") + "</small>";
-  }
-
-  async function refresh() {
-    const ids = Object.keys(FILES);
-    const all = await Promise.all(ids.map(async id => [id, await loadRace(id)]));
-    all.forEach(([id, d]) => paint(id, d));
-    document.getElementById("liveNote").textContent = all.some(x => x[1])
-      ? "This list refreshes every minute." : "Results could not be loaded. Open the live results page for the latest.";
-  }
-  refresh();
-  setInterval(() => { if (!document.hidden) refresh(); }, REFRESH_SECONDS * 1000);
 })();
 </script>
 </body>
