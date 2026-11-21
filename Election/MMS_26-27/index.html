@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>
+  (function () {
+    var t = null;
+    try { var q = new URLSearchParams(location.search).get("theme"); if (q === "dark" || q === "light") t = q; } catch (e) {}
+    try { if (!t) { var v = localStorage.getItem("election-theme"); if (v === "dark" || v === "light") t = v; } } catch (e) {}
+    document.documentElement.setAttribute("data-theme", t || "dark");
+  })();
+</script>
+<title>MMS Election 2026–27 · Results</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=Instrument+Sans:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0d0f13; --surface: #171a21; --track: #1b1f27;
+    --ink: #f4f5f7; --muted: #9aa1ad; --rule: #272b34; --neutral: #2a2e38;
+    --live: #3ddc84; --chip: #f3efe6;
+    --c0: #f2454f; --c1: #3f7cff; --c2: #f5b83d; --c3: #2fd4b0; --on-c: #0d0f13;
+    --display: "Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif;
+    --body: "Instrument Sans", "Helvetica Neue", Arial, sans-serif;
+  }
+  html[data-theme="light"] {
+    color-scheme: light;
+    --bg: #f3efe6; --surface: #ebe6d9; --track: #e2dccd;
+    --ink: #1d1b19; --muted: #625c52; --rule: #d8d1c2; --neutral: #cfc9bb;
+    --live: #2e9e57; --chip: transparent;
+    --c0: #c8283a; --c1: #2358c9; --c2: #9a6400; --c3: #0e7d68; --on-c: #ffffff;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; overflow: hidden; background: var(--bg); }
+  body { color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.4; }
+
+  /* Fixed 1280x720 (16:9) stage, scaled to fit whatever screen it is shown on. */
+  #stage {
+    position: absolute; left: 50%; top: 50%; width: 1280px; height: 720px;
+    transform: translate(-50%, -50%) scale(var(--s, 1)); transform-origin: center center;
+    background: var(--bg); display: grid; grid-template-rows: auto auto 1fr auto;
+    padding: 24px 40px 0; overflow: hidden;
+  }
+
+  /* ---------- Header ---------- */
+  header { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding-bottom: 14px; }
+  h1 { font-family: var(--display); font-weight: 800; font-size: 36px; line-height: 1; letter-spacing: -0.02em; margin: 0 0 6px; }
+  .sub { color: var(--muted); margin: 0; font-size: 16px; }
+  .hright { display: flex; align-items: center; gap: 22px; padding-bottom: 2px; }
+  .meta { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 15px; font-weight: 600; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--live); }
+  .meta.off .dot { background: var(--muted); }
+  .theme { display: inline-flex; border: 2px solid var(--ink); }
+  .theme button { font: inherit; font-size: 14px; font-weight: 600; color: var(--ink); background: transparent; border: 0; padding: 6px 14px; cursor: pointer; }
+  .theme button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+
+  /* ---------- Race tabs ---------- */
+  .tabs { display: flex; gap: 6px; border-bottom: 2px solid var(--rule); }
+  .tab {
+    font-family: var(--display); font-weight: 800; font-size: 22px; letter-spacing: -0.01em;
+    color: var(--muted); background: none; border: 0; border-bottom: 4px solid transparent;
+    margin-bottom: -2px; padding: 10px 24px; cursor: pointer; display: flex; align-items: center; gap: 12px;
+  }
+  .tab:hover { color: var(--ink); }
+  .tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ink); }
+  .pip { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--muted); background: transparent; flex: none; transition: background-color .6s ease, border-color .6s ease; }
+  .pip.has { background: var(--c); border-color: var(--c); }
+  .pip.called { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--c); }
+  button:focus-visible { outline: 3px solid var(--c1); outline-offset: 2px; }
+
+  /* ---------- Panel ---------- */
+  .panel { display: flex; flex-direction: column; min-height: 0; padding: 16px 0 12px; }
+  .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+  h2 { font-family: var(--display); font-weight: 800; font-size: 42px; line-height: 1; letter-spacing: -0.02em; margin: 0; }
+  .status { margin: 0; font-weight: 600; font-size: 22px; text-align: right; }
+  .status.called { background: var(--c); color: var(--on-c); padding: 6px 16px; }
+
+  #results { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+  #results[hidden], .empty[hidden], .bars [hidden], .card [hidden] { display: none; }
+
+  /* Turnout bars: both are drawn against the full 700 votes, so the empty part is turnout still to come. */
+  .bars { display: grid; grid-template-columns: 190px 1fr; grid-template-rows: 52px 42px; gap: 10px 16px; margin-top: 38px; }
+  .bars.nopred { grid-template-rows: 52px; }
+  .lab { align-self: center; display: flex; flex-direction: column; line-height: 1.2; }
+  .lab strong { font-size: 16px; font-weight: 600; }
+  .lab span { font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .track { display: flex; background: var(--track); overflow: hidden; }
+  .seg {
+    height: 100%; width: 0; background: var(--c); color: var(--on-c); overflow: hidden; white-space: nowrap;
+    display: flex; align-items: center; padding-left: 14px; border-left: 3px solid var(--bg);
+    font-family: var(--display); font-weight: 800; font-size: 24px; font-variant-numeric: tabular-nums;
+    transition: width .9s cubic-bezier(.2,.8,.2,1), background-color .6s ease;
+  }
+  .pred .seg { font-size: 16px; padding-left: 10px; opacity: .8;
+    background-image: repeating-linear-gradient(135deg, transparent 0 7px, rgba(0,0,0,.28) 7px 9px); }
+  .markwrap { grid-column: 2; grid-row: 1 / -1; position: relative; pointer-events: none; }
+  .mark { position: absolute; top: -8px; bottom: -4px; width: 2px; margin-left: -1px; background: var(--ink); }
+  .mark span { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); margin-bottom: 4px; white-space: nowrap; font-size: 14px; font-weight: 600; color: var(--muted); }
+
+  .cards { display: grid; gap: 20px; margin-top: 18px; flex: 1; min-height: 0; }
+  .card { background: var(--surface); border-left: 12px solid var(--c); padding: 18px 26px 16px; display: flex; flex-direction: column; justify-content: space-between; min-height: 0; }
+  .card .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .name { font-weight: 600; font-size: 26px; line-height: 1.15; }
+  .chip { background: var(--c); color: var(--on-c); font-weight: 600; font-size: 15px; padding: 3px 12px; white-space: nowrap; }
+  .total { font-family: var(--display); font-weight: 800; font-size: 120px; line-height: .9; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+  .foot { color: var(--muted); font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.35; }
+  .cards[data-n="1"] .card { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; column-gap: 24px; }
+  .cards[data-n="1"] .top { justify-content: flex-start; }
+  .cards[data-n="1"] .foot { text-align: right; }
+  .cards[data-n="3"] .total, .cards[data-n="4"] .total { font-size: 84px; }
+  .cards[data-n="3"] .name, .cards[data-n="4"] .name { font-size: 21px; }
+  .empty { margin: 48px 0 0; font-size: 22px; color: var(--muted); max-width: 640px; }
+
+  /* ---------- Footer ---------- */
+  footer { display: flex; align-items: center; justify-content: space-between; gap: 20px; border-top: 1px solid var(--rule); padding: 8px 0 10px; }
+  footer p { margin: 0; font-size: 13px; color: var(--muted); }
+  footer img { height: 44px; width: auto; max-width: 300px; object-fit: contain; display: block; background: var(--chip); padding: 4px 8px; border-radius: 6px; }
+
+  @media (prefers-reduced-motion: reduce) { .seg, .pip { transition: none; } }
+</style>
+</head>
+<body>
+<div id="stage">
+  <header>
+    <div>
+      <h1>MMS Election 2026–27</h1>
+      <p class="sub">Voting turnout and predicted turnout for each race, updated from the official data files.</p>
+    </div>
+    <div class="hright">
+      <div class="theme" role="group" aria-label="Color theme">
+        <button type="button" data-theme-btn="light" aria-pressed="false">Light Mode</button>
+        <button type="button" data-theme-btn="dark" aria-pressed="true">Dark Mode</button>
+      </div>
+      <div class="meta">
+        <span class="dot" aria-hidden="true"></span>
+        <span id="updated">Live, updates every minute</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="tabs" id="tabs" role="tablist" aria-label="Races"></div>
+
+  <section class="panel" id="panel" role="tabpanel">
+    <div class="panel-head">
+      <h2 id="raceTitle"></h2>
+      <p class="status" id="status" aria-live="polite">Loading results…</p>
+    </div>
+    <div id="results" hidden>
+      <div class="bars" id="bars">
+        <div class="lab"><strong>Voting turnout</strong><span id="actualNote"></span></div>
+        <div class="track" id="actual" role="img"></div>
+        <div class="lab" id="predLab"><strong>Predicted turnout</strong><span id="predNote"></span></div>
+        <div class="track pred" id="predicted" role="img"></div>
+        <div class="markwrap"><div class="mark" id="mark"><span id="markText"></span></div></div>
+      </div>
+      <div class="cards" id="cards"></div>
+    </div>
+    <p class="empty" id="empty">Loading results…</p>
+  </section>
+
+  <footer>
+    <p>QuantumElection is a trademark of Freedom News, a company of Nitrogen LLC. | All data shown is by Freedom News, an independent and unbiased media company.</p>
+    <img src="https://raw.githubusercontent.com/republic-of-freedom/Quantum-Election/refs/heads/main/Prerequisites/Freedom%20News%20Logo%20(No%20BG).png"
+         alt="Freedom News logo" onerror="this.style.display='none'">
+  </footer>
+</div>
+
+<script>
+(() => {
+  // ====== SETTINGS ======
+  const BASES = [
+    "https://raw.githubusercontent.com/republic-of-freedom/Quantum-Election/refs/heads/main/Election/MMS_26-27/",
+    "https://raw.githubusercontent.com/republic-of-freedom/Quantum-Election/main/Election/MMS_26-27/",
+    "https://cdn.jsdelivr.net/gh/republic-of-freedom/Quantum-Election@main/Election/MMS_26-27/"
+  ];
+  // CSV layout: header ",Candidate A,Candidate B" then a "Total" row (votes counted) and a "Predicted" row.
+  const RACES = [
+    { id: "president",      tab: "President",  title: "President",      file: "Presidental.csv" },
+    { id: "vice-president", tab: "Vice-Pres.", title: "Vice President", file: "Vice-Pres.csv" },
+    { id: "treasurer",      tab: "Treasurer",  title: "Treasurer",      file: "Treasurer.csv" },
+    { id: "secretary",      tab: "Secretary",  title: "Secretary",      file: "Secretary.csv" }
+  ];
+  const REFRESH_SECONDS = 60;   // set to 0 to turn off auto-refresh
+  const MAX_CANDIDATES = 4;
+  const TOTAL_VOTES = 700;      // total votes in every race
+  const CALL_ABOVE = 450;       // a candidate with more than this many votes wins the race
+  const EVERY = REFRESH_SECONDS === 60 ? "minute"
+              : REFRESH_SECONDS % 60 === 0 ? REFRESH_SECONDS / 60 + " minutes"
+              : REFRESH_SECONDS + " seconds";
+  const LIVE_TEXT = REFRESH_SECONDS > 0 ? "Live, updates every " + EVERY : "Live";
+
+  const $ = id => document.getElementById(id);
+  const REDUCED = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const results = {};           // race id -> { candidates, totals, predicted }
+  let current = RACES[0].id;
+
+  // ====== CSV ======
+  function parseCSV(text) {
+    const rows = [];
+    let row = [], cell = "", q = false;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (q) {
+        if (ch === '"' && text[i + 1] === '"') { cell += '"'; i++; }
+        else if (ch === '"') q = false;
+        else cell += ch;
+      } else if (ch === '"') q = true;
+      else if (ch === ",") { row.push(cell); cell = ""; }
+      else if (ch === "\n" || ch === "\r") {
+        if (ch === "\r" && text[i + 1] === "\n") i++;
+        row.push(cell); rows.push(row); row = []; cell = "";
+      } else cell += ch;
+    }
+    if (cell !== "" || row.length) { row.push(cell); rows.push(row); }
+    return rows.filter(r => r.some(c => c.trim() !== ""));
+  }
+
+  // Reads the "Total" row (votes counted) and the "Predicted" row. One candidate is fine (unopposed).
+  // Older files with one row per grade still work: the grades are added together.
+  function toData(rows) {
+    const candidates = rows[0].slice(1, 1 + MAX_CANDIDATES).map(h => h.trim()).filter(Boolean);
+    if (!candidates.length) throw new Error("no candidate columns");
+    const nums = r => candidates.map((_, i) => Number(r[i + 1]) || 0);
+    const label = r => (r[0] || "").trim();
+    const body = rows.slice(1);
+    const predRow = body.find(r => /^predict(ed|ion)?s?$/i.test(label(r)));
+    const totalRow = body.find(r => /^(total|overall)s?$/i.test(label(r)));
+    const grades = body.filter(r => r !== predRow && r !== totalRow);
+    if (!totalRow && !grades.length) throw new Error("no vote rows");
+    const totals = totalRow ? nums(totalRow)
+      : candidates.map((_, i) => grades.reduce((s, r) => s + (Number(r[i + 1]) || 0), 0));
+    return { candidates, totals, predicted: predRow ? nums(predRow) : null };
+  }
+
+  // ====== Loading ======
+  async function fetchCSV(url) {
+    let timer;
+    const timeout = new Promise((_, reject) => { timer = setTimeout(() => reject(new Error("timed out")), 8000); });
+    try {
+      const res = await Promise.race([fetch(url + (url.includes("?") ? "&" : "?") + "t=" + Date.now()), timeout]);
+      if (!res.ok) throw new Error("status " + res.status);
+      return await Promise.race([res.text(), timeout]);
+    } finally { clearTimeout(timer); }
+  }
+
+  async function loadRace(race) {
+    const problems = [];
+    for (const base of BASES) {
+      try { return toData(parseCSV(await fetchCSV(base + race.file))); }
+      catch (e) { problems.push(new URL(base).hostname + "/" + race.file + ": " + e.message); }
+    }
+    console.warn("[Election] Could not load " + race.title + ". " + problems.join(" | "));
+    return null;
+  }
+
+  let loading = false;
+  async function load() {
+    if (loading) return;
+    loading = true;
+    try {
+      const all = await Promise.all(RACES.map(async r => [r.id, await loadRace(r)]));
+      let any = false;
+      all.forEach(([id, data]) => { if (data) { results[id] = data; any = true; } });
+      $("updated").textContent = any ? LIVE_TEXT : "Reconnecting…";
+      document.querySelector(".meta").classList.toggle("off", !any);
+      if (!any) console.error("[Election] No race could be loaded. Check the file names in RACES, an ad blocker, or a Content-Security-Policy on your host.");
+      updateTabs();
+      render();
+    } finally { loading = false; }
+  }
+
+  // ====== Tabs ======
+  function leaderOf(totals) {
+    const max = Math.max(...totals);
+    const at = totals.reduce((a, v, i) => (v === max ? a.concat(i) : a), []);
+    return max > 0 && at.length === 1 ? at[0] : -1;
+  }
+  // Index of the candidate who has passed the calling threshold, or -1 if the race is not called.
+  function calledOf(totals) {
+    const max = Math.max(...totals);
+    return max > CALL_ABOVE ? totals.indexOf(max) : -1;
+  }
+
+  function buildTabs() {
+    RACES.forEach(r => {
+      const b = document.createElement("button");
+      b.type = "button"; b.id = "tab-" + r.id; b.className = "tab"; b.setAttribute("role", "tab");
+      b.innerHTML = '<span class="pip" aria-hidden="true"></span><span></span>';
+      b.lastChild.textContent = r.tab;
+      b.addEventListener("click", () => setRace(r.id));
+      b.addEventListener("keydown", e => {
+        const i = RACES.findIndex(x => x.id === current);
+        const to = e.key === "ArrowRight" ? (i + 1) % RACES.length : e.key === "ArrowLeft" ? (i + RACES.length - 1) % RACES.length
+                 : e.key === "Home" ? 0 : e.key === "End" ? RACES.length - 1 : -1;
+        if (to < 0) return;
+        e.preventDefault(); setRace(RACES[to].id); $("tab-" + RACES[to].id).focus();
+      });
+      $("tabs").appendChild(b);
+    });
+  }
+
+  function updateTabs() {
+    RACES.forEach(r => {
+      const b = $("tab-" + r.id), pip = b.firstChild, d = results[r.id];
+      const lead = d ? leaderOf(d.totals) : -1;
+      pip.classList.toggle("has", lead >= 0);
+      pip.classList.toggle("called", d ? calledOf(d.totals) >= 0 : false);
+      pip.style.setProperty("--c", lead >= 0 ? "var(--c" + lead + ")" : "transparent");
+      b.setAttribute("aria-selected", String(r.id === current));
+      b.tabIndex = r.id === current ? 0 : -1;
+    });
+    $("panel").setAttribute("aria-labelledby", "tab-" + current);
+  }
+
+  function setRace(id) {
+    current = id;
+    try { localStorage.setItem("election-race", id); } catch (e) {}
+    try { history.replaceState(null, "", "#" + id); } catch (e) {}
+    updateTabs();
+    render();
+  }
+
+  // ====== Drawing ======
+  function tween(el, to, ms = 900) {
+    const from = typeof el._v === "number" ? el._v : 0;
+    cancelAnimationFrame(el._raf);
+    if (REDUCED || from === to) { el._v = to; el.textContent = to; return; }
+    const t0 = performance.now();
+    const step = now => {
+      const k = Math.min((now - t0) / ms, 1);
+      el._v = from + (to - from) * (1 - Math.pow(1 - k, 3));
+      el.textContent = k < 1 ? Math.round(el._v) : to;
+      if (k < 1) el._raf = requestAnimationFrame(step); else el._v = to;
+    };
+    el._raf = requestAnimationFrame(step);
+  }
+
+  let builtKey = "";
+
+  function build(candidates) {
+    const cards = $("cards");
+    cards.innerHTML = ""; $("actual").innerHTML = ""; $("predicted").innerHTML = "";
+    cards.dataset.n = candidates.length;
+    cards.style.gridTemplateColumns = "repeat(" + candidates.length + ", 1fr)";
+    candidates.forEach((name, i) => {
+      ["actual", "predicted"].forEach(id => {
+        const seg = document.createElement("div");
+        seg.className = "seg"; seg.style.setProperty("--c", "var(--c" + i + ")");
+        $(id).appendChild(seg);
+      });
+      const card = document.createElement("article");
+      card.className = "card"; card.style.setProperty("--c", "var(--c" + i + ")");
+      card.innerHTML = '<div class="top"><span class="name"></span><span class="chip" hidden></span></div>' +
+                       '<div class="total">0</div><div class="foot"><div class="share"></div><div class="predv"></div></div>';
+      card.querySelector(".name").textContent = name;
+      cards.appendChild(card);
+    });
+    void cards.offsetHeight; // commit the starting state so the bars grow in
+  }
+
+  function setBar(track, vals, denom) {
+    let seen = false;
+    [...track.children].forEach((seg, i) => {
+      seg.style.width = (vals[i] / denom) * 100 + "%";
+      seg.style.borderLeftWidth = seen && vals[i] > 0 ? "3px" : "0";
+      if (vals[i] > 0) seen = true;
+      seg.textContent = vals[i] / denom >= 0.07 ? vals[i] : "";
+    });
+  }
+
+  function render() {
+    const race = RACES.find(r => r.id === current);
+    const d = results[current];
+    $("raceTitle").textContent = race.title;
+    const st = $("status"), empty = $("empty"), box = $("results");
+
+    if (!d) {
+      box.hidden = true; empty.hidden = false; builtKey = "";
+      empty.textContent = "Results for this race have not loaded yet. The page checks again every " + EVERY + ".";
+      st.classList.remove("called"); st.textContent = "Waiting for results";
+      return;
+    }
+    empty.hidden = true; box.hidden = false;
+
+    const { candidates, totals, predicted } = d;
+    const n = candidates.length;
+    const key = current + "|" + candidates.join("|");
+    if (key !== builtKey) { builtKey = key; build(candidates); }
+
+    const sum = totals.reduce((a, b) => a + b, 0);
+    const psum = predicted ? predicted.reduce((a, b) => a + b, 0) : 0;
+    const denom = Math.max(TOTAL_VOTES, sum, psum);
+    const lead = leaderOf(totals), called = calledOf(totals), max = Math.max(...totals);
+    const pc = v => Math.round((v / TOTAL_VOTES) * 1000) / 10 + "%";
+
+    // Turnout bars
+    setBar($("actual"), totals, denom);
+    $("actual").setAttribute("aria-label", "Votes counted: " + candidates.map((c, i) => c + " " + totals[i]).join(", "));
+    $("actualNote").textContent = sum + " of " + TOTAL_VOTES + " (" + pc(sum) + ")";
+    $("bars").classList.toggle("nopred", !predicted);
+    $("predLab").hidden = $("predicted").hidden = !predicted;
+    if (predicted) {
+      setBar($("predicted"), predicted, denom);
+      $("predicted").setAttribute("aria-label", "Predicted votes: " + candidates.map((c, i) => c + " " + predicted[i]).join(", "));
+      $("predNote").textContent = psum + " of " + TOTAL_VOTES + " (" + pc(psum) + ")";
+    }
+    $("mark").style.left = (CALL_ABOVE / denom) * 100 + "%";
+    $("markText").textContent = "Over " + CALL_ABOVE + " calls the race";
+
+    // Candidate cards
+    [...$("cards").children].forEach((card, i) => {
+      tween(card.querySelector(".total"), totals[i]);
+      card.querySelector(".share").textContent = sum ? ((totals[i] / sum) * 100).toFixed(1) + "% of votes counted" : "No votes yet";
+      const pv = card.querySelector(".predv");
+      pv.hidden = !predicted;
+      if (predicted) pv.textContent = "Predicted: " + predicted[i] + (predicted[i] === 1 ? " vote" : " votes");
+      const chip = card.querySelector(".chip");
+      chip.textContent = called >= 0 ? "Winner" : n === 1 ? "Unopposed" : "Leading";
+      chip.hidden = n === 1 ? false : (called >= 0 ? called : lead) !== i;
+    });
+
+    // Status line
+    let status;
+    if (called >= 0) status = "Freedom News has called this race for " + candidates[called] + ".";
+    else if (n === 1) status = candidates[0] + " is running unopposed.";
+    else if (sum === 0) status = "No votes have been counted yet.";
+    else if (lead < 0) {
+      const tied = candidates.filter((_, i) => totals[i] === max);
+      status = tied.length === n && n === 2 ? "Tied at " + max + " votes each." : "Tied between " + tied.join(" and ") + ".";
+    } else {
+      const diff = totals[lead] - Math.max(...totals.filter((_, i) => i !== lead));
+      status = candidates[lead] + " leads by " + diff + (diff === 1 ? " vote." : " votes.");
+    }
+    st.classList.toggle("called", called >= 0);
+    if (called >= 0) st.style.setProperty("--c", "var(--c" + called + ")");
+    st.textContent = status;
+  }
+
+  // ====== Light / Dark switch ======
+  function setTheme(t, save) {
+    document.documentElement.setAttribute("data-theme", t);
+    document.querySelectorAll("[data-theme-btn]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.themeBtn === t)));
+    if (save) { try { localStorage.setItem("election-theme", t); } catch (e) {} }
+  }
+  document.querySelectorAll("[data-theme-btn]").forEach(b => b.addEventListener("click", () => setTheme(b.dataset.themeBtn, true)));
+  setTheme(document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark", false);
+
+  // ====== Keep the 16:9 stage fitted to the screen ======
+  const stage = $("stage");
+  function fit() { stage.style.setProperty("--s", Math.min(window.innerWidth / 1280, window.innerHeight / 720)); }
+  window.addEventListener("resize", fit);
+  fit();
+
+  // ====== Start ======
+  buildTabs();
+  let first = null;
+  try { first = location.hash.slice(1); } catch (e) {}
+  if (!RACES.some(r => r.id === first)) { try { first = localStorage.getItem("election-race"); } catch (e) {} }
+  if (RACES.some(r => r.id === first)) current = first;
+  updateTabs();
+  render();
+
+  load();
+  if (REFRESH_SECONDS > 0) setInterval(() => { if (!document.hidden) load(); }, REFRESH_SECONDS * 1000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) load(); });
+})();
+</script>
+</body>
+</html>
