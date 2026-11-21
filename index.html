@@ -84,6 +84,14 @@
   h3 { font-size: 26px; line-height: 1.15; margin-bottom: 10px; }
   .feat p { margin: 0; color: var(--muted); max-width: 46ch; }
 
+  /* ---------- QuantumGraph ---------- */
+  .sec-lead { margin: 20px 0 0; color: var(--muted); max-width: 58ch; }
+  .graph-links { display: grid; grid-template-columns: repeat(2, 1fr); gap: 56px 72px; margin-top: 44px; }
+  .glink { display: block; text-decoration: none; border-top: 2px solid var(--rule); padding-top: 20px; transition: border-color .15s; }
+  .glink:hover, .glink:focus-visible { border-top-color: var(--ink); }
+  .glink p { margin: 0; color: var(--muted); max-width: 46ch; }
+  .glink .go { display: inline-block; margin-top: 18px; font-weight: 600; text-decoration: underline; text-underline-offset: 5px; }
+
   /* ---------- Closing ---------- */
   .closing { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 28px; border-top: 2px solid var(--ink); padding-top: 40px; }
   .closing h2 { max-width: 14ch; }
@@ -95,7 +103,7 @@
   footer img { height: 48px; width: auto; max-width: 300px; object-fit: contain; display: block; background: var(--chip); padding: 4px 8px; border-radius: 6px; }
 
   @media (max-width: 900px) {
-    .feat { grid-template-columns: 1fr; gap: 36px; }
+    .feat, .graph-links { grid-template-columns: 1fr; gap: 36px; }
     .dmark span { display: none; }
   }
   @media (max-width: 560px) {
@@ -104,7 +112,7 @@
     .foot { flex-direction: column; align-items: flex-start; }
     .dseg { font-size: 16px; padding-left: 10px; }
   }
-  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .dseg { transition: none; } }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .dseg, .glink { transition: none; } }
 </style>
 </head>
 <body>
@@ -113,6 +121,7 @@
     <a class="logo" href="#top" aria-label="QuantumElection home"><span class="glyph" aria-hidden="true"><i></i><i></i></span>QuantumElection</a>
     <nav class="topright" aria-label="Main">
       <a href="index.html" data-results>Live results</a>
+      <a href="#quantumgraph">QuantumGraph</a>
       <div class="theme" role="group" aria-label="Color theme">
         <button type="button" data-theme-btn="light" aria-pressed="false">Light Mode</button>
         <button type="button" data-theme-btn="dark" aria-pressed="true">Dark Mode</button>
@@ -156,6 +165,23 @@
           <h3>Made for a big screen</h3>
           <p>The layout keeps a 16:9 shape and scales to any display, with dark mode by default and a light mode when you want it.</p>
         </div>
+      </div>
+    </section>
+
+    <section id="quantumgraph" aria-labelledby="graphH">
+      <h2 id="graphH">QuantumGraph</h2>
+      <p class="sec-lead">QuantumGraph is the chart maker from Nitrogen LLC. Enter your numbers, pick a graph, and download it as a PNG. Choose the current version or the original.</p>
+      <div class="graph-links">
+        <a class="glink" href="Subsidiaries/QuantumGraph.html">
+          <h3>QuantumGraph</h3>
+          <p>The current version. Make bar, trend, line, scatter and pie charts for data, votes or any other numbers, with up to 24 series and CSV import.</p>
+          <span class="go">Open QuantumGraph</span>
+        </a>
+        <a class="glink" href="Subsidiaries/QuantumGraph_Legacy.html">
+          <h3>QuantumGraph Legacy</h3>
+          <p>The original election charts. Turn up to four candidates’ votes and predicted turnout into turnout, bar, donut and column graphics.</p>
+          <span class="go">Open QuantumGraph Legacy</span>
+        </a>
       </div>
     </section>
 
